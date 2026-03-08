@@ -114,3 +114,35 @@ bool DiskManagement::Mkdisk(int size, const std::string& path, char unit, char f
     outMsg = "Disco creado OK: " + path + " (" + std::to_string(totalBytes) + " bytes)";
     return true;
 }
+
+bool DiskManagement::Rmdisk(const std::string& path, std::string& outMsg) {
+    outMsg.clear();
+
+    if (path.empty()) {
+        outMsg = "Error: -path es obligatorio.";
+        return false;
+    }
+
+    std::filesystem::path p(path);
+
+    if (!std::filesystem::exists(p)) {
+        outMsg = "Error: el disco no existe en la ruta indicada: " + path;
+        return false;
+    }
+
+    std::error_code ec;
+    bool removed = std::filesystem::remove(p, ec);
+
+    if (ec) {
+        outMsg = "Error al eliminar el disco: " + ec.message();
+        return false;
+    }
+
+    if (!removed) {
+        outMsg = "Error: no se pudo eliminar el disco.";
+        return false;
+    }
+
+    outMsg = "Disco eliminado correctamente: " + path;
+    return true;
+}

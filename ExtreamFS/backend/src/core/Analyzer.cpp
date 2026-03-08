@@ -97,6 +97,23 @@ void Analyzer::ExecuteLine(const std::string& line) {
         return;
     }
 
+        if (parsed.command == "rmdisk") {
+            if (!parsed.params.count("path")) {
+                std::cout << "[ERROR] rmdisk requiere -path\n";
+                return;
+            }
+
+            std::string path = parsed.params["path"];
+            std::string msg;
+
+            if (!DiskManagement::Rmdisk(path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+    }
+
     std::cout << "[INFO] Comando reconocido pero no implementado: " << parsed.command << "\n";
 }
 
