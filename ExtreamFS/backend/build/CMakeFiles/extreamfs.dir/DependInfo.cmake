@@ -10,6 +10,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/core/Analyzer.cpp" "CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o.d"
   "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/DiskManagement.cpp" "CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o.d"
+  "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp" "CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o.d"
+  "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp" "CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o.d"
   "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/main.cpp" "CMakeFiles/extreamfs.dir/src/main.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/main.cpp.o.d"
   )
 

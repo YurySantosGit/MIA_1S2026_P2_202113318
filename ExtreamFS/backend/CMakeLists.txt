@@ -16,6 +16,8 @@ set(SOURCES
     src/main.cpp
     src/core/Analyzer.cpp
     src/disk/DiskManagement.cpp
+    src/disk/MountManager.cpp
+    src/fs/FileSystemManager.cpp
 )
 
 # =========================

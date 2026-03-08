@@ -177,6 +177,54 @@ src/disk/DiskManagement.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.s
 .PHONY : src/disk/DiskManagement.cpp.s
 
+src/disk/MountManager.o: src/disk/MountManager.cpp.o
+.PHONY : src/disk/MountManager.o
+
+# target to build an object file
+src/disk/MountManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o
+.PHONY : src/disk/MountManager.cpp.o
+
+src/disk/MountManager.i: src/disk/MountManager.cpp.i
+.PHONY : src/disk/MountManager.i
+
+# target to preprocess a source file
+src/disk/MountManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.i
+.PHONY : src/disk/MountManager.cpp.i
+
+src/disk/MountManager.s: src/disk/MountManager.cpp.s
+.PHONY : src/disk/MountManager.s
+
+# target to generate assembly for a file
+src/disk/MountManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.s
+.PHONY : src/disk/MountManager.cpp.s
+
+src/fs/FileSystemManager.o: src/fs/FileSystemManager.cpp.o
+.PHONY : src/fs/FileSystemManager.o
+
+# target to build an object file
+src/fs/FileSystemManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o
+.PHONY : src/fs/FileSystemManager.cpp.o
+
+src/fs/FileSystemManager.i: src/fs/FileSystemManager.cpp.i
+.PHONY : src/fs/FileSystemManager.i
+
+# target to preprocess a source file
+src/fs/FileSystemManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.i
+.PHONY : src/fs/FileSystemManager.cpp.i
+
+src/fs/FileSystemManager.s: src/fs/FileSystemManager.cpp.s
+.PHONY : src/fs/FileSystemManager.s
+
+# target to generate assembly for a file
+src/fs/FileSystemManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.s
+.PHONY : src/fs/FileSystemManager.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -216,6 +264,12 @@ help:
 	@echo "... src/disk/DiskManagement.o"
 	@echo "... src/disk/DiskManagement.i"
 	@echo "... src/disk/DiskManagement.s"
+	@echo "... src/disk/MountManager.o"
+	@echo "... src/disk/MountManager.i"
+	@echo "... src/disk/MountManager.s"
+	@echo "... src/fs/FileSystemManager.o"
+	@echo "... src/fs/FileSystemManager.i"
+	@echo "... src/fs/FileSystemManager.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

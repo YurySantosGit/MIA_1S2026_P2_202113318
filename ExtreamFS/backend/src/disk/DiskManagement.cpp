@@ -5,6 +5,9 @@
 #include <cstring>
 #include <ctime>
 #include <random>
+#include <vector>
+#include <algorithm>
+#include <climits>
 
 static std::string nowString() {
     std::time_t t = std::time(nullptr);
@@ -145,4 +148,289 @@ bool DiskManagement::Rmdisk(const std::string& path, std::string& outMsg) {
 
     outMsg = "Disco eliminado correctamente: " + path;
     return true;
+}
+
+bool DiskManagement::ReadMBR(const std::string& path, MBR& outMBR, std::string& outMsg) {
+    outMsg.clear();
+
+    if (path.empty()) {
+        outMsg = "Error: path vacio.";
+        return false;
+    }
+
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "Error: no se pudo abrir el disco: " + path;
+        return false;
+    }
+
+    file.seekg(0);
+    file.read(reinterpret_cast<char*>(&outMBR), sizeof(MBR));
+
+    if (!file) {
+        outMsg = "Error: no se pudo leer el MBR del disco.";
+        return false;
+    }
+
+    file.close();
+    return true;
+}
+
+bool DiskManagement::WriteMBR(const std::string& path, const MBR& mbr, std::string& outMsg) {
+    outMsg.clear();
+
+    if (path.empty()) {
+        outMsg = "Error: path vacio.";
+        return false;
+    }
+
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "Error: no se pudo abrir el disco para escritura: " + path;
+        return false;
+    }
+
+    file.seekp(0);
+    file.write(reinterpret_cast<const char*>(&mbr), sizeof(MBR));
+
+    if (!file) {
+        outMsg = "Error: no se pudo escribir el MBR en el disco.";
+        return false;
+    }
+
+    file.close();
+    return true;
+}
+
+static int bytesFromUnitFDisk(int size, char unit) {
+    unit = (char)std::tolower((unsigned char)unit);
+    if (unit == 'b') return size;
+    if (unit == 'k') return size * 1024;
+    return size * 1024; // default KB para fdisk
+}
+
+static char normalizeType(char type) {
+    type = (char)std::tolower((unsigned char)type);
+    if (type == 'p' || type == 'e' || type == 'l') return type;
+    return 'p';
+}
+
+static int findFreePartitionSlot(const MBR& mbr) {
+    for (int i = 0; i < 4; i++) {
+        if (mbr.mbr_partitions[i].part_start == -1 || mbr.mbr_partitions[i].part_size == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static bool partitionNameExists(const MBR& mbr, const std::string& name) {
+    for (int i = 0; i < 4; i++) {
+        const Partition& p = mbr.mbr_partitions[i];
+        if (p.part_start != -1 && p.part_size > 0) {
+            std::string existingName(p.part_name);
+            if (existingName == name) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static std::vector<Partition> getActivePartitions(const MBR& mbr) {
+    std::vector<Partition> parts;
+    for (int i = 0; i < 4; i++) {
+        const Partition& p = mbr.mbr_partitions[i];
+        if (p.part_start != -1 && p.part_size > 0) {
+            parts.push_back(p);
+        }
+    }
+    std::sort(parts.begin(), parts.end(), [](const Partition& a, const Partition& b) {
+        return a.part_start < b.part_start;
+    });
+    return parts;
+}
+
+struct Gap {
+    int start;
+    int size;
+};
+
+static std::vector<Gap> getAvailableGaps(const MBR& mbr) {
+    std::vector<Gap> gaps;
+    std::vector<Partition> parts = getActivePartitions(mbr);
+
+    int diskStart = (int)sizeof(MBR);
+    int diskEnd = mbr.mbr_tamano;
+
+    if (parts.empty()) {
+        gaps.push_back({diskStart, diskEnd - diskStart});
+        return gaps;
+    }
+
+    // Hueco entre MBR y primera partición
+    if (parts[0].part_start > diskStart) {
+        gaps.push_back({diskStart, parts[0].part_start - diskStart});
+    }
+
+    // Huecos intermedios
+    for (size_t i = 0; i + 1 < parts.size(); i++) {
+        int gapStart = parts[i].part_start + parts[i].part_size;
+        int gapSize = parts[i + 1].part_start - gapStart;
+        if (gapSize > 0) {
+            gaps.push_back({gapStart, gapSize});
+        }
+    }
+
+    // Último hueco
+    int lastEnd = parts.back().part_start + parts.back().part_size;
+    if (diskEnd > lastEnd) {
+        gaps.push_back({lastEnd, diskEnd - lastEnd});
+    }
+
+    return gaps;
+}
+
+static int chooseGapIndex(const std::vector<Gap>& gaps, int requiredSize, char fit) {
+    fit = (char)std::tolower((unsigned char)fit);
+
+    int selected = -1;
+
+    if (fit == 'f') {
+        for (size_t i = 0; i < gaps.size(); i++) {
+            if (gaps[i].size >= requiredSize) {
+                return (int)i;
+            }
+        }
+        return -1;
+    }
+
+    if (fit == 'b') {
+        int bestSize = INT_MAX;
+        for (size_t i = 0; i < gaps.size(); i++) {
+            if (gaps[i].size >= requiredSize && gaps[i].size < bestSize) {
+                bestSize = gaps[i].size;
+                selected = (int)i;
+            }
+        }
+        return selected;
+    }
+
+    if (fit == 'w') {
+        int worstSize = -1;
+        for (size_t i = 0; i < gaps.size(); i++) {
+            if (gaps[i].size >= requiredSize && gaps[i].size > worstSize) {
+                worstSize = gaps[i].size;
+                selected = (int)i;
+            }
+        }
+        return selected;
+    }
+
+    return -1;
+}
+
+bool DiskManagement::Fdisk(int size,
+                           const std::string& path,
+                           const std::string& name,
+                           char unit,
+                           char type,
+                           char fit,
+                           std::string& outMsg) {
+    outMsg.clear();
+
+    if (size <= 0) {
+        outMsg = "Error: -size debe ser mayor a 0.";
+        return false;
+    }
+
+    if (path.empty()) {
+        outMsg = "Error: -path es obligatorio.";
+        return false;
+    }
+
+    if (name.empty()) {
+        outMsg = "Error: -name es obligatorio.";
+        return false;
+    }
+
+    unit = (char)std::tolower((unsigned char)unit);
+    type = normalizeType(type);
+    fit  = normalizeFit(fit);
+
+    int partBytes = bytesFromUnitFDisk(size, unit);
+
+    MBR mbr{};
+    if (!ReadMBR(path, mbr, outMsg)) {
+        return false;
+    }
+
+    if (partitionNameExists(mbr, name)) {
+        outMsg = "Error: ya existe una particion con el nombre: " + name;
+        return false;
+    }
+
+    // Por ahora solo primaria
+    if (type != 'p') {
+        outMsg = "Error: por el momento solo se implementan particiones primarias.";
+        return false;
+    }
+
+    int slot = findFreePartitionSlot(mbr);
+    if (slot == -1) {
+        outMsg = "Error: no hay entradas libres en el MBR (maximo 4 particiones).";
+        return false;
+    }
+
+    std::vector<Gap> gaps = getAvailableGaps(mbr);
+    int gapIndex = chooseGapIndex(gaps, partBytes, fit);
+
+    if (gapIndex == -1) {
+        outMsg = "Error: no hay espacio suficiente para crear la particion.";
+        return false;
+    }
+
+    Partition& p = mbr.mbr_partitions[slot];
+    p.part_status = '1';
+    p.part_type = 'p';
+    p.part_fit = fit;
+    p.part_start = gaps[gapIndex].start;
+    p.part_size = partBytes;
+    std::memset(p.part_name, 0, sizeof(p.part_name));
+    std::strncpy(p.part_name, name.c_str(), sizeof(p.part_name) - 1);
+
+    if (!WriteMBR(path, mbr, outMsg)) {
+        return false;
+    }
+
+    outMsg = "Particion primaria creada correctamente: " + name +
+             " | start=" + std::to_string(p.part_start) +
+             " | size=" + std::to_string(p.part_size) + " bytes";
+    return true;
+}
+
+bool DiskManagement::FindPartitionByName(const std::string& path,
+                                         const std::string& name,
+                                         Partition& outPartition,
+                                         std::string& outMsg) {
+    outMsg.clear();
+
+    MBR mbr{};
+    if (!ReadMBR(path, mbr, outMsg)) {
+        return false;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        const Partition& p = mbr.mbr_partitions[i];
+        if (p.part_start != -1 && p.part_size > 0) {
+            std::string existingName(p.part_name);
+            if (existingName == name) {
+                outPartition = p;
+                return true;
+            }
+        }
+    }
+
+    outMsg = "Error: no se encontro la particion con nombre: " + name;
+    return false;
 }

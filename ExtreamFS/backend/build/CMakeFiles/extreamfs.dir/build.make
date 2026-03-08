@@ -111,11 +111,41 @@ CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/DiskManagement.cpp -o CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.s
 
+CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o: CMakeFiles/extreamfs.dir/flags.make
+CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp
+CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o: CMakeFiles/extreamfs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o -MF CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o.d -o CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o -c /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp
+
+CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp > CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.i
+
+CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp -o CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.s
+
+CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: CMakeFiles/extreamfs.dir/flags.make
+CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp
+CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: CMakeFiles/extreamfs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o -MF CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o.d -o CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o -c /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp
+
+CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp > CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.i
+
+CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp -o CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.s
+
 # Object files for target extreamfs
 extreamfs_OBJECTS = \
 "CMakeFiles/extreamfs.dir/src/main.cpp.o" \
 "CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o" \
-"CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o"
+"CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o" \
+"CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o" \
+"CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o"
 
 # External object files for target extreamfs
 extreamfs_EXTERNAL_OBJECTS =
@@ -123,9 +153,11 @@ extreamfs_EXTERNAL_OBJECTS =
 extreamfs: CMakeFiles/extreamfs.dir/src/main.cpp.o
 extreamfs: CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o
 extreamfs: CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o
+extreamfs: CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o
+extreamfs: CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o
 extreamfs: CMakeFiles/extreamfs.dir/build.make
 extreamfs: CMakeFiles/extreamfs.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable extreamfs"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable extreamfs"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/extreamfs.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

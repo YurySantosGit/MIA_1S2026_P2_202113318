@@ -123,6 +123,17 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: \
  /usr/include/c++/13/bits/stl_multimap.h \
  /usr/include/c++/13/bits/erase_if.h \
  /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/DiskManagement.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/Structs.h \
+ /usr/include/c++/13/cstdint \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/MountManager.h \
+ /usr/include/c++/13/vector /usr/include/c++/13/bits/stl_uninitialized.h \
+ /usr/include/c++/13/bits/stl_vector.h \
+ /usr/include/c++/13/bits/stl_bvector.h \
+ /usr/include/c++/13/bits/vector.tcc \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/ostream \
  /usr/include/c++/13/ios /usr/include/c++/13/exception \
  /usr/include/c++/13/bits/exception_ptr.h \
@@ -175,18 +186,14 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: \
  /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/sstream \
  /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/stack \
- /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_uninitialized.h \
- /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
- /usr/include/c++/13/bits/stl_stack.h \
+ /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
+ /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_stack.h \
  /usr/include/c++/13/bits/shared_ptr.h \
  /usr/include/c++/13/bits/shared_ptr_base.h \
  /usr/include/c++/13/bits/allocated_ptr.h \
  /usr/include/c++/13/bits/unique_ptr.h \
  /usr/include/c++/13/ext/concurrence.h \
  /usr/include/c++/13/bits/std_function.h \
- /usr/include/c++/13/bits/stl_vector.h \
- /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc \
  /usr/include/c++/13/bits/regex_constants.h \
  /usr/include/c++/13/bits/regex_error.h \
  /usr/include/c++/13/bits/regex_automaton.h \

@@ -1,5 +1,9 @@
 #include "core/Analyzer.h"
 #include "disk/DiskManagement.h"
+#include "disk/MountManager.h"
+#include "disk/Structs.h"
+
+#include "fs/FileSystemManager.h"
 
 #include <iostream>
 #include <algorithm>
@@ -112,6 +116,110 @@ void Analyzer::ExecuteLine(const std::string& line) {
                 std::cout << "[OK] " << msg << "\n";
             }
             return;
+    }
+
+    if (parsed.command == "fdisk") {
+        if (!parsed.params.count("size") ||
+            !parsed.params.count("path") ||
+            !parsed.params.count("name")) {
+            std::cout << "[ERROR] fdisk requiere -size, -path y -name\n";
+            return;
+        }
+
+        int size = 0;
+        try {
+            size = std::stoi(parsed.params["size"]);
+        } catch (...) {
+            std::cout << "[ERROR] -size debe ser un entero valido\n";
+            return;
+        }
+
+        std::string path = parsed.params["path"];
+        std::string name = parsed.params["name"];
+
+        char unit = parsed.params.count("unit") ? parsed.params["unit"][0] : 'k';
+        char type = parsed.params.count("type") ? parsed.params["type"][0] : 'p';
+        char fit  = parsed.params.count("fit")  ? parsed.params["fit"][0]  : 'w';
+
+        std::string msg;
+        if (!DiskManagement::Fdisk(size, path, name, unit, type, fit, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "mount") {
+        if (!parsed.params.count("path") || !parsed.params.count("name")) {
+            std::cout << "[ERROR] mount requiere -path y -name\n";
+            return;
+        }
+
+        std::string path = parsed.params["path"];
+        std::string name = parsed.params["name"];
+
+        Partition part{};
+        std::string msg;
+
+        if (!DiskManagement::FindPartitionByName(path, name, part, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+            return;
+        }
+
+        //últimos dos dígitos de carnet
+        std::string carnetLastTwo = "18";
+
+        std::string id = MountManager::Mount(path,
+                                             name,
+                                             part.part_start,
+                                             part.part_size,
+                                             carnetLastTwo,
+                                             msg);
+
+        if (id.empty()) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "mounted") {
+        const auto& mounted = MountManager::GetMountedPartitions();
+
+        if (mounted.empty()) {
+            std::cout << "[INFO] No hay particiones montadas.\n";
+            return;
+        }
+
+        std::cout << "[MOUNTED]\n";
+        for (const auto& mp : mounted) {
+            std::cout << "  - id=" << mp.id
+                      << " | name=" << mp.name
+                      << " | path=" << mp.path
+                      << " | start=" << mp.start
+                      << " | size=" << mp.size
+                      << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "mkfs") {
+        if (!parsed.params.count("id")) {
+            std::cout << "[ERROR] mkfs requiere -id\n";
+            return;
+        }
+
+        std::string id = parsed.params["id"];
+        std::string msg;
+
+        if (!FileSystemManager::Mkfs(id, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
     }
 
     std::cout << "[INFO] Comando reconocido pero no implementado: " << parsed.command << "\n";
