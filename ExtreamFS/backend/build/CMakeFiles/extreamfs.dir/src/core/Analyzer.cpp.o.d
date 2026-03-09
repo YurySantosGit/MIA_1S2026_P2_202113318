@@ -134,6 +134,7 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
  /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/SessionManager.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/ostream \
  /usr/include/c++/13/ios /usr/include/c++/13/exception \
  /usr/include/c++/13/bits/exception_ptr.h \

@@ -4,6 +4,7 @@
 #include "disk/Structs.h"
 
 #include "fs/FileSystemManager.h"
+#include "fs/SessionManager.h"
 
 #include <iostream>
 #include <algorithm>
@@ -215,6 +216,145 @@ void Analyzer::ExecuteLine(const std::string& line) {
         std::string msg;
 
         if (!FileSystemManager::Mkfs(id, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "login") {
+
+        if (!parsed.params.count("user") ||
+            !parsed.params.count("pass") ||
+            !parsed.params.count("id")) {
+
+            std::cout << "[ERROR] login requiere -user -pass -id\n";
+            return;
+        }
+
+        std::string user = parsed.params["user"];
+        std::string pass = parsed.params["pass"];
+        std::string id   = parsed.params["id"];
+
+        std::string msg;
+
+        if (!SessionManager::Login(user, pass, id, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+
+        return;
+    }
+
+    if (parsed.command == "logout") {
+        if (!SessionManager::currentSession.active) {
+            std::cout << "[ERROR] No hay una sesion activa.\n";
+            return;
+        }
+
+        SessionManager::Logout();
+        std::cout << "[OK] Sesion cerrada correctamente.\n";
+        return;
+    }
+
+    if (parsed.command == "session") {
+        if (!SessionManager::currentSession.active) {
+            std::cout << "[INFO] No hay sesion activa.\n";
+            return;
+        }
+
+        std::cout << "[SESSION]\n";
+        std::cout << "  - user=" << SessionManager::currentSession.user << "\n";
+        std::cout << "  - group=" << SessionManager::currentSession.group << "\n";
+        std::cout << "  - id=" << SessionManager::currentSession.partitionId << "\n";
+        return;
+    }
+
+    if (parsed.command == "mkgrp") {
+        if (!parsed.params.count("name")) {
+            std::cout << "[ERROR] mkgrp requiere -name\n";
+            return;
+        }
+
+        std::string groupName = parsed.params["name"];
+        std::string msg;
+
+        if (!FileSystemManager::Mkgrp(groupName, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "rmgrp") {
+        if (!parsed.params.count("name")) {
+            std::cout << "[ERROR] rmgrp requiere -name\n";
+            return;
+        }
+
+        std::string groupName = parsed.params["name"];
+        std::string msg;
+
+        if (!FileSystemManager::Rmgrp(groupName, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "mkusr") {
+        if (!parsed.params.count("user") ||
+            !parsed.params.count("pass") ||
+            !parsed.params.count("grp")) {
+            std::cout << "[ERROR] mkusr requiere -user, -pass y -grp\n";
+            return;
+        }
+
+        std::string user = parsed.params["user"];
+        std::string pass = parsed.params["pass"];
+        std::string grp  = parsed.params["grp"];
+        std::string msg;
+
+        if (!FileSystemManager::Mkusr(user, pass, grp, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "rmusr") {
+        if (!parsed.params.count("user")) {
+            std::cout << "[ERROR] rmusr requiere -user\n";
+            return;
+        }
+
+        std::string user = parsed.params["user"];
+        std::string msg;
+
+        if (!FileSystemManager::Rmusr(user, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "chgrp") {
+        if (!parsed.params.count("user") || !parsed.params.count("grp")) {
+            std::cout << "[ERROR] chgrp requiere -user y -grp\n";
+            return;
+        }
+
+        std::string user = parsed.params["user"];
+        std::string grp  = parsed.params["grp"];
+        std::string msg;
+
+        if (!FileSystemManager::Chgrp(user, grp, msg)) {
             std::cout << "[ERROR] " << msg << "\n";
         } else {
             std::cout << "[OK] " << msg << "\n";

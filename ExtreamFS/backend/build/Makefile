@@ -225,6 +225,30 @@ src/fs/FileSystemManager.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.s
 .PHONY : src/fs/FileSystemManager.cpp.s
 
+src/fs/SessionManager.o: src/fs/SessionManager.cpp.o
+.PHONY : src/fs/SessionManager.o
+
+# target to build an object file
+src/fs/SessionManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o
+.PHONY : src/fs/SessionManager.cpp.o
+
+src/fs/SessionManager.i: src/fs/SessionManager.cpp.i
+.PHONY : src/fs/SessionManager.i
+
+# target to preprocess a source file
+src/fs/SessionManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.i
+.PHONY : src/fs/SessionManager.cpp.i
+
+src/fs/SessionManager.s: src/fs/SessionManager.cpp.s
+.PHONY : src/fs/SessionManager.s
+
+# target to generate assembly for a file
+src/fs/SessionManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.s
+.PHONY : src/fs/SessionManager.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -270,6 +294,9 @@ help:
 	@echo "... src/fs/FileSystemManager.o"
 	@echo "... src/fs/FileSystemManager.i"
 	@echo "... src/fs/FileSystemManager.s"
+	@echo "... src/fs/SessionManager.o"
+	@echo "... src/fs/SessionManager.i"
+	@echo "... src/fs/SessionManager.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

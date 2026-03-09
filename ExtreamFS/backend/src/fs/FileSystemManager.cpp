@@ -1,7 +1,10 @@
 #include "fs/FileSystemManager.h"
 #include "fs/Ext2Structs.h"
 #include "disk/MountManager.h"
+#include "fs/SessionManager.h"
 
+#include <sstream>
+#include <vector>
 #include <fstream>
 #include <cstring>
 #include <ctime>
@@ -15,6 +18,25 @@ static std::string nowStringFS() {
     char buf[20];
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm);
     return std::string(buf);
+}
+
+static std::vector<std::string> splitFS(const std::string& text, char delim) {
+    std::vector<std::string> parts;
+    std::stringstream ss(text);
+    std::string item;
+
+    while (std::getline(ss, item, delim)) {
+        parts.push_back(item);
+    }
+
+    return parts;
+}
+
+static std::string trimFS(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
 }
 
 static int calcN(int partitionSize) {
@@ -193,5 +215,816 @@ bool FileSystemManager::Mkfs(const std::string& id, std::string& outMsg) {
     outMsg = "Particion formateada correctamente en EXT2. id=" + id +
              " | inodos=" + std::to_string(n) +
              " | bloques=" + std::to_string(3 * n);
+    return true;
+}
+
+bool FileSystemManager::Mkgrp(const std::string& groupName, std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (SessionManager::currentSession.user != "root") {
+        outMsg = "Solo el usuario root puede ejecutar mkgrp.";
+        return false;
+    }
+
+    if (groupName.empty()) {
+        outMsg = "El parametro -name es obligatorio.";
+        return false;
+    }
+
+    if (groupName.size() > 10) {
+        outMsg = "El nombre del grupo no puede exceder 10 caracteres.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    // 1) Leer superbloque
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    // 2) Leer inodo de users.txt (inodo 1)
+    Inode usersInode{};
+    file.seekg(sb.s_inode_start + sizeof(Inode));
+    file.read(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // 3) Leer bloque actual de users.txt
+    int blockIndex = usersInode.i_block[0];
+    if (blockIndex < 0) {
+        outMsg = "users.txt no tiene bloque asignado.";
+        file.close();
+        return false;
+    }
+
+    FileBlock usersBlock{};
+    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el bloque de users.txt.";
+        file.close();
+        return false;
+    }
+
+    std::string content(usersBlock.b_content);
+    std::stringstream ss(content);
+    std::string line;
+
+    int maxGroupId = 0;
+    bool exists = false;
+
+    while (std::getline(ss, line)) {
+        line = trimFS(line);
+        if (line.empty()) continue;
+
+        std::vector<std::string> cols = splitFS(line, ',');
+        if (cols.size() < 3) continue;
+
+        for (std::string& c : cols) {
+            c = trimFS(c);
+        }
+
+        // ignorar eliminados
+        if (cols[0] == "0") continue;
+
+        if (cols[1] == "G") {
+            int gid = 0;
+            try {
+                gid = std::stoi(cols[0]);
+            } catch (...) {
+                gid = 0;
+            }
+
+            if (gid > maxGroupId) {
+                maxGroupId = gid;
+            }
+
+            if (cols[2] == groupName) {
+                exists = true;
+            }
+        }
+    }
+
+    if (exists) {
+        outMsg = "El grupo ya existe: " + groupName;
+        file.close();
+        return false;
+    }
+
+    int newId = maxGroupId + 1;
+    std::string newLine = std::to_string(newId) + ",G," + groupName + "\n";
+    std::string newContent = content + newLine;
+
+    if (newContent.size() >= sizeof(usersBlock.b_content)) {
+        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+        file.close();
+        return false;
+    }
+
+    // 4) Reescribir bloque de users.txt
+    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
+    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
+
+    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // 5) Actualizar tamaño del inodo users.txt
+    usersInode.i_size = (int)newContent.size();
+    std::string now = nowStringFS();
+    std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
+    std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
+
+    file.seekp(sb.s_inode_start + sizeof(Inode));
+    file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    file.close();
+
+    outMsg = "Grupo creado correctamente: " + groupName;
+    return true;
+}
+
+bool FileSystemManager::Rmgrp(const std::string& groupName, std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (SessionManager::currentSession.user != "root") {
+        outMsg = "Solo el usuario root puede ejecutar rmgrp.";
+        return false;
+    }
+
+    if (groupName.empty()) {
+        outMsg = "El parametro -name es obligatorio.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    // 1) Leer superbloque
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    // 2) Leer inodo de users.txt
+    Inode usersInode{};
+    file.seekg(sb.s_inode_start + sizeof(Inode)); // inodo 1
+    file.read(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // 3) Leer bloque de users.txt
+    int blockIndex = usersInode.i_block[0];
+    if (blockIndex < 0) {
+        outMsg = "users.txt no tiene bloque asignado.";
+        file.close();
+        return false;
+    }
+
+    FileBlock usersBlock{};
+    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el bloque de users.txt.";
+        file.close();
+        return false;
+    }
+
+    std::string content(usersBlock.b_content);
+    std::stringstream ss(content);
+    std::string line;
+
+    std::vector<std::string> newLines;
+    bool found = false;
+
+    while (std::getline(ss, line)) {
+        std::string originalLine = trimFS(line);
+        if (originalLine.empty()) continue;
+
+        std::vector<std::string> cols = splitFS(originalLine, ',');
+        if (cols.size() < 3) {
+            newLines.push_back(originalLine);
+            continue;
+        }
+
+        for (std::string& c : cols) {
+            c = trimFS(c);
+        }
+
+        // Si es grupo y coincide el nombre
+        if (cols[1] == "G" && cols[2] == groupName) {
+            // Si ya estaba eliminado
+            if (cols[0] == "0") {
+                outMsg = "El grupo ya estaba eliminado: " + groupName;
+                file.close();
+                return false;
+            }
+
+            cols[0] = "0";
+            found = true;
+        }
+
+        // reconstruir línea
+        std::string rebuilt;
+        for (size_t i = 0; i < cols.size(); i++) {
+            rebuilt += cols[i];
+            if (i + 1 < cols.size()) rebuilt += ",";
+        }
+        newLines.push_back(rebuilt);
+    }
+
+    if (!found) {
+        outMsg = "El grupo no existe: " + groupName;
+        file.close();
+        return false;
+    }
+
+    // reconstruir contenido completo
+    std::string newContent;
+    for (const auto& l : newLines) {
+        newContent += l + "\n";
+    }
+
+    if (newContent.size() >= sizeof(usersBlock.b_content)) {
+        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+        file.close();
+        return false;
+    }
+
+    // 4) Reescribir bloque
+    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
+    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
+
+    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // 5) Actualizar inodo
+    usersInode.i_size = (int)newContent.size();
+    std::string now = nowStringFS();
+    std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
+    std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
+
+    file.seekp(sb.s_inode_start + sizeof(Inode));
+    file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    file.close();
+
+    outMsg = "Grupo eliminado correctamente: " + groupName;
+    return true;
+}
+
+bool FileSystemManager::Mkusr(const std::string& user,
+                              const std::string& pass,
+                              const std::string& group,
+                              std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (SessionManager::currentSession.user != "root") {
+        outMsg = "Solo el usuario root puede ejecutar mkusr.";
+        return false;
+    }
+
+    if (user.empty() || pass.empty() || group.empty()) {
+        outMsg = "Los parametros -user, -pass y -grp son obligatorios.";
+        return false;
+    }
+
+    if (user.size() > 10 || pass.size() > 10 || group.size() > 10) {
+        outMsg = "user, pass y grp no pueden exceder 10 caracteres.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    // 1) Leer superbloque
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    // 2) Leer inodo de users.txt
+    Inode usersInode{};
+    file.seekg(sb.s_inode_start + sizeof(Inode)); // inodo 1
+    file.read(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // 3) Leer bloque de users.txt
+    int blockIndex = usersInode.i_block[0];
+    if (blockIndex < 0) {
+        outMsg = "users.txt no tiene bloque asignado.";
+        file.close();
+        return false;
+    }
+
+    FileBlock usersBlock{};
+    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el bloque de users.txt.";
+        file.close();
+        return false;
+    }
+
+    std::string content(usersBlock.b_content);
+    std::stringstream ss(content);
+    std::string line;
+
+    int maxUserId = 0;
+    bool groupExists = false;
+    bool userExists = false;
+
+    while (std::getline(ss, line)) {
+        line = trimFS(line);
+        if (line.empty()) continue;
+
+        std::vector<std::string> cols = splitFS(line, ',');
+        if (cols.size() < 3) continue;
+
+        for (std::string& c : cols) {
+            c = trimFS(c);
+        }
+
+        // ignorar eliminados
+        if (cols[0] == "0") continue;
+
+        if (cols[1] == "G") {
+            if (cols[2] == group) {
+                groupExists = true;
+            }
+        }
+
+        if (cols.size() == 5 && cols[1] == "U") {
+            int uid = 0;
+            try {
+                uid = std::stoi(cols[0]);
+            } catch (...) {
+                uid = 0;
+            }
+
+            if (uid > maxUserId) {
+                maxUserId = uid;
+            }
+
+            if (cols[3] == user) {
+                userExists = true;
+            }
+        }
+    }
+
+    if (!groupExists) {
+        outMsg = "El grupo no existe o esta eliminado: " + group;
+        file.close();
+        return false;
+    }
+
+    if (userExists) {
+        outMsg = "El usuario ya existe: " + user;
+        file.close();
+        return false;
+    }
+
+    int newUserId = maxUserId + 1;
+    std::string newLine = std::to_string(newUserId) + ",U," + group + "," + user + "," + pass + "\n";
+    std::string newContent = content + newLine;
+
+    if (newContent.size() >= sizeof(usersBlock.b_content)) {
+        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+        file.close();
+        return false;
+    }
+
+    // 4) Reescribir bloque
+    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
+    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
+
+    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // 5) Actualizar inodo
+    usersInode.i_size = (int)newContent.size();
+    std::string now = nowStringFS();
+    std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
+    std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
+
+    file.seekp(sb.s_inode_start + sizeof(Inode));
+    file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    file.close();
+
+    outMsg = "Usuario creado correctamente: " + user + " | grupo=" + group;
+    return true;
+}
+
+bool FileSystemManager::Rmusr(const std::string& user, std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (SessionManager::currentSession.user != "root") {
+        outMsg = "Solo el usuario root puede ejecutar rmusr.";
+        return false;
+    }
+
+    if (user.empty()) {
+        outMsg = "El parametro -user es obligatorio.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    Inode usersInode{};
+    file.seekg(sb.s_inode_start + sizeof(Inode)); // inodo 1
+    file.read(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    int blockIndex = usersInode.i_block[0];
+    if (blockIndex < 0) {
+        outMsg = "users.txt no tiene bloque asignado.";
+        file.close();
+        return false;
+    }
+
+    FileBlock usersBlock{};
+    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el bloque de users.txt.";
+        file.close();
+        return false;
+    }
+
+    std::string content(usersBlock.b_content);
+    std::stringstream ss(content);
+    std::string line;
+
+    std::vector<std::string> newLines;
+    bool found = false;
+
+    while (std::getline(ss, line)) {
+        std::string originalLine = trimFS(line);
+        if (originalLine.empty()) continue;
+
+        std::vector<std::string> cols = splitFS(originalLine, ',');
+        if (cols.size() < 3) {
+            newLines.push_back(originalLine);
+            continue;
+        }
+
+        for (std::string& c : cols) {
+            c = trimFS(c);
+        }
+
+        if (cols.size() == 5 && cols[1] == "U" && cols[3] == user) {
+            if (cols[0] == "0") {
+                outMsg = "El usuario ya estaba eliminado: " + user;
+                file.close();
+                return false;
+            }
+
+            cols[0] = "0";
+            found = true;
+        }
+
+        std::string rebuilt;
+        for (size_t i = 0; i < cols.size(); i++) {
+            rebuilt += cols[i];
+            if (i + 1 < cols.size()) rebuilt += ",";
+        }
+        newLines.push_back(rebuilt);
+    }
+
+    if (!found) {
+        outMsg = "El usuario no existe: " + user;
+        file.close();
+        return false;
+    }
+
+    std::string newContent;
+    for (const auto& l : newLines) {
+        newContent += l + "\n";
+    }
+
+    if (newContent.size() >= sizeof(usersBlock.b_content)) {
+        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+        file.close();
+        return false;
+    }
+
+    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
+    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
+
+    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
+        file.close();
+        return false;
+    }
+
+    usersInode.i_size = (int)newContent.size();
+    std::string now = nowStringFS();
+    std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
+    std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
+
+    file.seekp(sb.s_inode_start + sizeof(Inode));
+    file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    file.close();
+
+    outMsg = "Usuario eliminado correctamente: " + user;
+    return true;
+}
+
+bool FileSystemManager::Chgrp(const std::string& user,
+                              const std::string& group,
+                              std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (SessionManager::currentSession.user != "root") {
+        outMsg = "Solo el usuario root puede ejecutar chgrp.";
+        return false;
+    }
+
+    if (user.empty() || group.empty()) {
+        outMsg = "Los parametros -user y -grp son obligatorios.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    Inode usersInode{};
+    file.seekg(sb.s_inode_start + sizeof(Inode)); // inodo 1
+    file.read(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    int blockIndex = usersInode.i_block[0];
+    if (blockIndex < 0) {
+        outMsg = "users.txt no tiene bloque asignado.";
+        file.close();
+        return false;
+    }
+
+    FileBlock usersBlock{};
+    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el bloque de users.txt.";
+        file.close();
+        return false;
+    }
+
+    std::string content(usersBlock.b_content);
+    std::stringstream ss(content);
+    std::string line;
+
+    std::vector<std::string> newLines;
+    bool groupExists = false;
+    bool userExists = false;
+
+    while (std::getline(ss, line)) {
+        std::string originalLine = trimFS(line);
+        if (originalLine.empty()) continue;
+
+        std::vector<std::string> cols = splitFS(originalLine, ',');
+        if (cols.size() < 3) {
+            newLines.push_back(originalLine);
+            continue;
+        }
+
+        for (std::string& c : cols) {
+            c = trimFS(c);
+        }
+
+        // Verificar grupo activo
+        if (cols[0] != "0" && cols[1] == "G" && cols[2] == group) {
+            groupExists = true;
+        }
+
+        // Cambiar grupo del usuario activo
+        if (cols.size() == 5 && cols[1] == "U" && cols[3] == user) {
+            if (cols[0] == "0") {
+                outMsg = "El usuario esta eliminado: " + user;
+                file.close();
+                return false;
+            }
+
+            userExists = true;
+            cols[2] = group;
+        }
+
+        std::string rebuilt;
+        for (size_t i = 0; i < cols.size(); i++) {
+            rebuilt += cols[i];
+            if (i + 1 < cols.size()) rebuilt += ",";
+        }
+        newLines.push_back(rebuilt);
+    }
+
+    if (!groupExists) {
+        outMsg = "El grupo no existe o esta eliminado: " + group;
+        file.close();
+        return false;
+    }
+
+    if (!userExists) {
+        outMsg = "El usuario no existe: " + user;
+        file.close();
+        return false;
+    }
+
+    std::string newContent;
+    for (const auto& l : newLines) {
+        newContent += l + "\n";
+    }
+
+    if (newContent.size() >= sizeof(usersBlock.b_content)) {
+        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+        file.close();
+        return false;
+    }
+
+    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
+    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
+
+    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
+    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+    if (!file) {
+        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
+        file.close();
+        return false;
+    }
+
+    usersInode.i_size = (int)newContent.size();
+    std::string now = nowStringFS();
+    std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
+    std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
+
+    file.seekp(sb.s_inode_start + sizeof(Inode));
+    file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    file.close();
+
+    outMsg = "Grupo del usuario actualizado correctamente: " + user + " -> " + group;
     return true;
 }

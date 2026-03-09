@@ -7,6 +7,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/extreamfs.dir/src/disk/MountManager.cpp.o.d"
   "CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o"
   "CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o.d"
+  "CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o"
+  "CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o.d"
   "CMakeFiles/extreamfs.dir/src/main.cpp.o"
   "CMakeFiles/extreamfs.dir/src/main.cpp.o.d"
   "extreamfs"
