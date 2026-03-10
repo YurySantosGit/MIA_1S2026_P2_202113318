@@ -6,6 +6,7 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: /home/yurysantos/Escritorio/MI
   /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/DiskManagement.h \
   /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/MountManager.h \
   /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/Structs.h \
+  /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/Ext2Structs.h \
   /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
   /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/SessionManager.h \
   /usr/include/alloca.h \
@@ -34,6 +35,7 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: /home/yurysantos/Escritorio/MI
   /usr/include/c++/13/bits/exception.h \
   /usr/include/c++/13/bits/exception_defines.h \
   /usr/include/c++/13/bits/exception_ptr.h \
+  /usr/include/c++/13/bits/fstream.tcc \
   /usr/include/c++/13/bits/functexcept.h \
   /usr/include/c++/13/bits/functional_hash.h \
   /usr/include/c++/13/bits/hash_bytes.h \
@@ -129,6 +131,7 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: /home/yurysantos/Escritorio/MI
   /usr/include/c++/13/ext/numeric_traits.h \
   /usr/include/c++/13/ext/string_conversions.h \
   /usr/include/c++/13/ext/type_traits.h \
+  /usr/include/c++/13/fstream \
   /usr/include/c++/13/initializer_list \
   /usr/include/c++/13/ios \
   /usr/include/c++/13/iosfwd \
@@ -233,8 +236,10 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: /home/yurysantos/Escritorio/MI
   /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
   /usr/include/x86_64-linux-gnu/bits/wordsize.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/atomic_word.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/c++allocator.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
+  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/c++locale.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/cpu_defines.h \
   /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_base.h \
@@ -700,8 +705,10 @@ CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: /home/yurysantos/Escrit
   /usr/include/alloca.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
+  /usr/include/c++/13/algorithm \
   /usr/include/c++/13/backward/binders.h \
   /usr/include/c++/13/bit \
+  /usr/include/c++/13/bits/algorithmfwd.h \
   /usr/include/c++/13/bits/alloc_traits.h \
   /usr/include/c++/13/bits/allocator.h \
   /usr/include/c++/13/bits/basic_ios.h \
@@ -746,20 +753,24 @@ CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: /home/yurysantos/Escrit
   /usr/include/c++/13/bits/specfun.h \
   /usr/include/c++/13/bits/sstream.tcc \
   /usr/include/c++/13/bits/std_abs.h \
+  /usr/include/c++/13/bits/stl_algo.h \
   /usr/include/c++/13/bits/stl_algobase.h \
   /usr/include/c++/13/bits/stl_bvector.h \
   /usr/include/c++/13/bits/stl_construct.h \
   /usr/include/c++/13/bits/stl_function.h \
+  /usr/include/c++/13/bits/stl_heap.h \
   /usr/include/c++/13/bits/stl_iterator.h \
   /usr/include/c++/13/bits/stl_iterator_base_funcs.h \
   /usr/include/c++/13/bits/stl_iterator_base_types.h \
   /usr/include/c++/13/bits/stl_pair.h \
+  /usr/include/c++/13/bits/stl_tempbuf.h \
   /usr/include/c++/13/bits/stl_uninitialized.h \
   /usr/include/c++/13/bits/stl_vector.h \
   /usr/include/c++/13/bits/streambuf.tcc \
   /usr/include/c++/13/bits/streambuf_iterator.h \
   /usr/include/c++/13/bits/string_view.tcc \
   /usr/include/c++/13/bits/stringfwd.h \
+  /usr/include/c++/13/bits/uniform_int_dist.h \
   /usr/include/c++/13/bits/uses_allocator.h \
   /usr/include/c++/13/bits/uses_allocator_args.h \
   /usr/include/c++/13/bits/utility.h \
@@ -792,6 +803,8 @@ CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: /home/yurysantos/Escrit
   /usr/include/c++/13/limits \
   /usr/include/c++/13/new \
   /usr/include/c++/13/ostream \
+  /usr/include/c++/13/pstl/execution_defs.h \
+  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
   /usr/include/c++/13/pstl/pstl_config.h \
   /usr/include/c++/13/sstream \
   /usr/include/c++/13/stdexcept \
@@ -1335,8 +1348,6 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h:
-
 /usr/include/x86_64-linux-gnu/bits/xopen_lim.h:
 
 /usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
@@ -1389,8 +1400,6 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/iomanip:
 
-/usr/include/c++/13/fstream:
-
 /usr/include/c++/13/filesystem:
 
 /usr/include/c++/13/cstring:
@@ -1409,15 +1418,17 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/bits/quoted_string.h:
 
-/usr/include/c++/13/bits/fstream.tcc:
-
 /usr/include/c++/13/bits/fs_path.h:
 
 /usr/include/c++/13/bits/fs_ops.h:
 
-/usr/include/c++/13/ext/string_conversions.h:
+/usr/include/c++/13/bits/fs_fwd.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/sigset_t.h:
+/usr/include/c++/13/bits/fs_dir.h:
+
+/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/DiskManagement.cpp:
+
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
 
 /usr/include/c++/13/ext/concurrence.h:
 
@@ -1432,6 +1443,8 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 /usr/include/c++/13/deque:
 
 /usr/include/c++/13/cstdio:
+
+/usr/include/c++/13/fstream:
 
 /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
 
@@ -1545,23 +1558,25 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/libintl.h:
 
-/usr/include/c++/13/bits/refwrap.h:
+/usr/include/c++/13/bits/chrono.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
+/usr/include/x86_64-linux-gnu/bits/endianness.h:
 
-/usr/include/c++/13/bits/deque.tcc:
+/usr/include/c++/13/tr1/hypergeometric.tcc:
 
-/usr/include/x86_64-linux-gnu/bits/endian.h:
+/usr/include/c++/13/bits/range_access.h:
 
-/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+/usr/include/c++/13/system_error:
 
-/usr/include/c++/13/bits/concept_check.h:
+/usr/include/c++/13/bits/string_view.tcc:
 
-/usr/include/c++/13/bits/alloc_traits.h:
+/usr/include/x86_64-linux-gnu/bits/thread-shared-types.h:
 
-/usr/include/c++/13/bits/istream.tcc:
+/usr/include/c++/13/bits/ptr_traits.h:
 
-/usr/include/c++/13/bits/locale_conv.h:
+/usr/include/x86_64-linux-gnu/c++/13/bits/c++locale.h:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h:
 
 /usr/include/c++/13/bits/cxxabi_forced.h:
 
@@ -1607,6 +1622,10 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/new:
 
+/usr/include/c++/13/bits/alloc_traits.h:
+
+/usr/include/c++/13/bits/concept_check.h:
+
 /usr/include/x86_64-linux-gnu/bits/long-double.h:
 
 /usr/include/c++/13/bits/algorithmfwd.h:
@@ -1619,13 +1638,33 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/x86_64-linux-gnu/bits/types/FILE.h:
 
-/usr/include/c++/13/bits/ptr_traits.h:
+/usr/include/c++/13/bits/deque.tcc:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/c++locale.h:
+/usr/include/x86_64-linux-gnu/bits/endian.h:
 
-/usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h:
+/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+
+/usr/include/c++/13/bits/istream.tcc:
+
+/usr/include/c++/13/bits/locale_conv.h:
+
+/usr/include/c++/13/bits/refwrap.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
+
+/usr/include/c++/13/bits/fstream.tcc:
 
 /usr/include/c++/13/algorithm:
+
+/usr/include/c++/13/bits/allocated_ptr.h:
+
+/usr/include/c++/13/bit:
+
+/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp:
+
+/usr/include/c++/13/bits/basic_string.tcc:
+
+/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/DiskManagement.h:
 
 /usr/include/c++/13/bits/localefwd.h:
 
@@ -1636,14 +1675,6 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/time_t.h:
-
-/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/MountManager.cpp:
-
-/usr/include/c++/13/bits/basic_string.tcc:
-
-/usr/include/c++/13/bits/allocated_ptr.h:
-
-/usr/include/c++/13/bit:
 
 /usr/include/alloca.h:
 
@@ -1657,13 +1688,7 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/cwchar:
 
-/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/DiskManagement.h:
-
 /usr/include/c++/13/bits/cxxabi_init_exception.h:
-
-/usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h:
-
-/usr/include/c++/13/typeinfo:
 
 /usr/include/c++/13/bits/exception.h:
 
@@ -1721,8 +1746,6 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/bits/memoryfwd.h:
 
-/usr/include/c++/13/bits/fs_fwd.h:
-
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/SessionManager.cpp:
 
 /usr/include/c++/13/bits/ostream_insert.h:
@@ -1733,15 +1756,9 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/iosfwd:
 
-/usr/include/c++/13/tr1/hypergeometric.tcc:
+/usr/include/x86_64-linux-gnu/bits/types/sigset_t.h:
 
-/usr/include/c++/13/bits/range_access.h:
-
-/usr/include/c++/13/system_error:
-
-/usr/include/c++/13/bits/string_view.tcc:
-
-/usr/include/x86_64-linux-gnu/bits/thread-shared-types.h:
+/usr/include/c++/13/ext/string_conversions.h:
 
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/MountManager.h:
 
@@ -1769,8 +1786,6 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/c++/13/regex:
 
-/usr/include/c++/13/bits/fs_dir.h:
-
 /usr/include/c++/13/stdexcept:
 
 /usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
@@ -1796,8 +1811,6 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 /usr/include/c++/13/vector:
 
 /usr/include/ctype.h:
-
-/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/DiskManagement.cpp:
 
 /usr/include/features.h:
 
@@ -1833,9 +1846,9 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/x86_64-linux-gnu/asm/errno.h:
 
-/usr/include/c++/13/ext/numeric_traits.h:
-
 /usr/include/c++/13/bits/stl_iterator.h:
+
+/usr/include/c++/13/ext/numeric_traits.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
@@ -1937,6 +1950,12 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 
 /usr/include/x86_64-linux-gnu/c++/13/bits/atomic_word.h:
 
+/usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h:
+
+/usr/include/c++/13/typeinfo:
+
+/usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h:
+
 /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_base.h:
 
 /usr/include/c++/13/bits/std_function.h:
@@ -1964,9 +1983,3 @@ CMakeFiles/extreamfs.dir/src/main.cpp.o: /home/yurysantos/Escritorio/MIA_1S2026_
 /usr/include/c++/13/numeric:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h:
-
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
-
-/usr/include/x86_64-linux-gnu/bits/endianness.h:
-
-/usr/include/c++/13/bits/chrono.h:

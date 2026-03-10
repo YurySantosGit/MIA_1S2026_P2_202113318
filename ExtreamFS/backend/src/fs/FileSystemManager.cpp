@@ -9,6 +9,8 @@
 #include <cstring>
 #include <ctime>
 #include <cmath>
+#include <algorithm>
+
 
 static std::string nowStringFS() {
     std::time_t t = std::time(nullptr);
@@ -45,6 +47,171 @@ static int calcN(int partitionSize) {
     int block = (int)sizeof(FileBlock); // todos valen 64 bytes
     double n = (double)(partitionSize - sb) / (1.0 + 3.0 + inode + 3.0 * block);
     return (int)std::floor(n);
+}
+
+static std::vector<int> getUsersTxtUsedBlocks(const Inode& inode) {
+    std::vector<int> blocks;
+    for (int i = 0; i < 15; i++) {
+        if (inode.i_block[i] != -1) {
+            blocks.push_back(inode.i_block[i]);
+        }
+    }
+    return blocks;
+}
+
+static std::vector<int> findFreeBlocks(std::fstream& file, const SuperBlock& sb, int countNeeded) {
+    std::vector<int> freeBlocks;
+
+    file.seekg(sb.s_bm_block_start);
+    for (int i = 0; i < sb.s_blocks_count; i++) {
+        char bit = '0';
+        file.read(&bit, 1);
+        if (!file) break;
+
+        if (bit == '0') {
+            freeBlocks.push_back(i);
+            if ((int)freeBlocks.size() == countNeeded) {
+                break;
+            }
+        }
+    }
+
+    return freeBlocks;
+}
+
+bool FileSystemManager::ReadUsersTxt(std::fstream& file,
+                                     const SuperBlock& sb,
+                                     const Inode& usersInode,
+                                     std::string& outContent,
+                                     std::string& outMsg) {
+    outContent.clear();
+    outMsg.clear();
+
+    for (int i = 0; i < 15; i++) {
+        int blockIndex = usersInode.i_block[i];
+        if (blockIndex == -1) continue;
+
+        FileBlock block{};
+        file.seekg(sb.s_block_start + blockIndex * (int)sizeof(FileBlock));
+        file.read(reinterpret_cast<char*>(&block), sizeof(FileBlock));
+        if (!file) {
+            outMsg = "No se pudo leer un bloque de users.txt.";
+            return false;
+        }
+
+        outContent.append(block.b_content, sizeof(block.b_content));
+    }
+
+    if ((int)outContent.size() > usersInode.i_size) {
+        outContent = outContent.substr(0, usersInode.i_size);
+    }
+
+    return true;
+}
+
+bool FileSystemManager::WriteUsersTxt(std::fstream& file,
+                                      SuperBlock& sb,
+                                      Inode& usersInode,
+                                      const std::string& newContent,
+                                      std::string& outMsg) {
+    outMsg.clear();
+
+    int requiredBlocks = (int)((newContent.size() + sizeof(FileBlock) - 1) / sizeof(FileBlock));
+    if (requiredBlocks <= 0) requiredBlocks = 1;
+
+    if (requiredBlocks > 15) {
+        outMsg = "users.txt requiere mas de 15 bloques directos. Aun no se soportan indirectos.";
+        return false;
+    }
+
+    std::vector<int> currentBlocks = getUsersTxtUsedBlocks(usersInode);
+
+    // Si faltan bloques, asignar nuevos
+    if ((int)currentBlocks.size() < requiredBlocks) {
+        int missing = requiredBlocks - (int)currentBlocks.size();
+
+        std::vector<int> freeBlocks = findFreeBlocks(file, sb, missing);
+        if ((int)freeBlocks.size() < missing) {
+            outMsg = "No hay suficientes bloques libres para users.txt.";
+            return false;
+        }
+
+        int pos = 0;
+        for (int i = 0; i < 15 && pos < missing; i++) {
+            if (usersInode.i_block[i] == -1) {
+                usersInode.i_block[i] = freeBlocks[pos++];
+            }
+        }
+
+        for (int idx : freeBlocks) {
+            file.seekp(sb.s_bm_block_start + idx);
+            char one = '1';
+            file.write(&one, 1);
+            if (!file) {
+                outMsg = "No se pudo actualizar el bitmap de bloques.";
+                return false;
+            }
+        }
+
+        sb.s_free_blocks_count -= missing;
+    }
+
+    // Si sobran bloques, liberar
+    currentBlocks = getUsersTxtUsedBlocks(usersInode);
+    if ((int)currentBlocks.size() > requiredBlocks) {
+        for (int i = requiredBlocks; i < (int)currentBlocks.size(); i++) {
+            int idx = currentBlocks[i];
+
+            file.seekp(sb.s_bm_block_start + idx);
+            char zero = '0';
+            file.write(&zero, 1);
+
+            FileBlock emptyBlock{};
+            std::memset(emptyBlock.b_content, 0, sizeof(emptyBlock.b_content));
+            file.seekp(sb.s_block_start + idx * (int)sizeof(FileBlock));
+            file.write(reinterpret_cast<char*>(&emptyBlock), sizeof(FileBlock));
+
+            for (int j = 0; j < 15; j++) {
+                if (usersInode.i_block[j] == idx) {
+                    usersInode.i_block[j] = -1;
+                    break;
+                }
+            }
+
+            sb.s_free_blocks_count += 1;
+        }
+    }
+
+    // Releer bloques finales
+    std::vector<int> finalBlocks = getUsersTxtUsedBlocks(usersInode);
+    if ((int)finalBlocks.size() < requiredBlocks) {
+        outMsg = "No se pudieron asignar suficientes bloques a users.txt.";
+        return false;
+    }
+
+    // Escribir contenido repartido
+    size_t offset = 0;
+    for (int i = 0; i < requiredBlocks; i++) {
+        FileBlock block{};
+        std::memset(block.b_content, 0, sizeof(block.b_content));
+
+        size_t remaining = newContent.size() - offset;
+        size_t chunk = std::min(remaining, sizeof(block.b_content));
+        std::memcpy(block.b_content, newContent.data() + offset, chunk);
+
+        int blockIndex = finalBlocks[i];
+        file.seekp(sb.s_block_start + blockIndex * (int)sizeof(FileBlock));
+        file.write(reinterpret_cast<char*>(&block), sizeof(FileBlock));
+        if (!file) {
+            outMsg = "No se pudo escribir un bloque de users.txt.";
+            return false;
+        }
+
+        offset += chunk;
+    }
+
+    usersInode.i_size = (int)newContent.size();
+    return true;
 }
 
 bool FileSystemManager::Mkfs(const std::string& id, std::string& outMsg) {
@@ -273,24 +440,13 @@ bool FileSystemManager::Mkgrp(const std::string& groupName, std::string& outMsg)
         return false;
     }
 
-    // 3) Leer bloque actual de users.txt
-    int blockIndex = usersInode.i_block[0];
-    if (blockIndex < 0) {
-        outMsg = "users.txt no tiene bloque asignado.";
+    // 3) Leer contenido completo de users.txt (multibloque)
+    std::string content;
+    if (!ReadUsersTxt(file, sb, usersInode, content, outMsg)) {
         file.close();
         return false;
     }
 
-    FileBlock usersBlock{};
-    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo leer el bloque de users.txt.";
-        file.close();
-        return false;
-    }
-
-    std::string content(usersBlock.b_content);
     std::stringstream ss(content);
     std::string line;
 
@@ -339,34 +495,29 @@ bool FileSystemManager::Mkgrp(const std::string& groupName, std::string& outMsg)
     std::string newLine = std::to_string(newId) + ",G," + groupName + "\n";
     std::string newContent = content + newLine;
 
-    if (newContent.size() >= sizeof(usersBlock.b_content)) {
-        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+    if (!WriteUsersTxt(file, sb, usersInode, newContent, outMsg)) {
         file.close();
         return false;
     }
 
-    // 4) Reescribir bloque de users.txt
-    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
-    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
-
-    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
-        file.close();
-        return false;
-    }
-
-    // 5) Actualizar tamaño del inodo users.txt
-    usersInode.i_size = (int)newContent.size();
     std::string now = nowStringFS();
     std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
     std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
 
+    // escribir inodo actualizado
     file.seekp(sb.s_inode_start + sizeof(Inode));
     file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
     if (!file) {
         outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // escribir superbloque actualizado
+    file.seekp(mp.start);
+    file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo actualizar el SuperBloque.";
         file.close();
         return false;
     }
@@ -427,24 +578,13 @@ bool FileSystemManager::Rmgrp(const std::string& groupName, std::string& outMsg)
         return false;
     }
 
-    // 3) Leer bloque de users.txt
-    int blockIndex = usersInode.i_block[0];
-    if (blockIndex < 0) {
-        outMsg = "users.txt no tiene bloque asignado.";
+    // 3) Leer contenido completo de users.txt (multibloque)
+    std::string content;
+    if (!ReadUsersTxt(file, sb, usersInode, content, outMsg)) {
         file.close();
         return false;
     }
 
-    FileBlock usersBlock{};
-    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo leer el bloque de users.txt.";
-        file.close();
-        return false;
-    }
-
-    std::string content(usersBlock.b_content);
     std::stringstream ss(content);
     std::string line;
 
@@ -499,34 +639,29 @@ bool FileSystemManager::Rmgrp(const std::string& groupName, std::string& outMsg)
         newContent += l + "\n";
     }
 
-    if (newContent.size() >= sizeof(usersBlock.b_content)) {
-        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+    if (!WriteUsersTxt(file, sb, usersInode, newContent, outMsg)) {
         file.close();
         return false;
     }
 
-    // 4) Reescribir bloque
-    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
-    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
-
-    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
-        file.close();
-        return false;
-    }
-
-    // 5) Actualizar inodo
-    usersInode.i_size = (int)newContent.size();
     std::string now = nowStringFS();
     std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
     std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
 
+    // escribir inodo actualizado
     file.seekp(sb.s_inode_start + sizeof(Inode));
     file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
     if (!file) {
         outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // escribir superbloque actualizado
+    file.seekp(mp.start);
+    file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo actualizar el SuperBloque.";
         file.close();
         return false;
     }
@@ -596,23 +731,12 @@ bool FileSystemManager::Mkusr(const std::string& user,
     }
 
     // 3) Leer bloque de users.txt
-    int blockIndex = usersInode.i_block[0];
-    if (blockIndex < 0) {
-        outMsg = "users.txt no tiene bloque asignado.";
+    std::string content;
+    if (!ReadUsersTxt(file, sb, usersInode, content, outMsg)) {
         file.close();
         return false;
     }
 
-    FileBlock usersBlock{};
-    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo leer el bloque de users.txt.";
-        file.close();
-        return false;
-    }
-
-    std::string content(usersBlock.b_content);
     std::stringstream ss(content);
     std::string line;
 
@@ -674,34 +798,30 @@ bool FileSystemManager::Mkusr(const std::string& user,
     std::string newLine = std::to_string(newUserId) + ",U," + group + "," + user + "," + pass + "\n";
     std::string newContent = content + newLine;
 
-    if (newContent.size() >= sizeof(usersBlock.b_content)) {
-        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
-        file.close();
-        return false;
-    }
-
     // 4) Reescribir bloque
-    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
-    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
-
-    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
+    if (!WriteUsersTxt(file, sb, usersInode, newContent, outMsg)) {
         file.close();
         return false;
     }
 
-    // 5) Actualizar inodo
-    usersInode.i_size = (int)newContent.size();
     std::string now = nowStringFS();
     std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
     std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
 
+    // escribir inodo actualizado
     file.seekp(sb.s_inode_start + sizeof(Inode));
     file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
     if (!file) {
         outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // escribir superbloque actualizado
+    file.seekp(mp.start);
+    file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo actualizar el SuperBloque.";
         file.close();
         return false;
     }
@@ -760,23 +880,12 @@ bool FileSystemManager::Rmusr(const std::string& user, std::string& outMsg) {
         return false;
     }
 
-    int blockIndex = usersInode.i_block[0];
-    if (blockIndex < 0) {
-        outMsg = "users.txt no tiene bloque asignado.";
+    std::string content;
+    if (!ReadUsersTxt(file, sb, usersInode, content, outMsg)) {
         file.close();
         return false;
     }
 
-    FileBlock usersBlock{};
-    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo leer el bloque de users.txt.";
-        file.close();
-        return false;
-    }
-
-    std::string content(usersBlock.b_content);
     std::stringstream ss(content);
     std::string line;
 
@@ -827,32 +936,29 @@ bool FileSystemManager::Rmusr(const std::string& user, std::string& outMsg) {
         newContent += l + "\n";
     }
 
-    if (newContent.size() >= sizeof(usersBlock.b_content)) {
-        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+    if (!WriteUsersTxt(file, sb, usersInode, newContent, outMsg)) {
         file.close();
         return false;
     }
 
-    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
-    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
-
-    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
-        file.close();
-        return false;
-    }
-
-    usersInode.i_size = (int)newContent.size();
     std::string now = nowStringFS();
     std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
     std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
 
+    // escribir inodo actualizado
     file.seekp(sb.s_inode_start + sizeof(Inode));
     file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
     if (!file) {
         outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // escribir superbloque actualizado
+    file.seekp(mp.start);
+    file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo actualizar el SuperBloque.";
         file.close();
         return false;
     }
@@ -913,23 +1019,12 @@ bool FileSystemManager::Chgrp(const std::string& user,
         return false;
     }
 
-    int blockIndex = usersInode.i_block[0];
-    if (blockIndex < 0) {
-        outMsg = "users.txt no tiene bloque asignado.";
+    std::string content;
+    if (!ReadUsersTxt(file, sb, usersInode, content, outMsg)) {
         file.close();
         return false;
     }
 
-    FileBlock usersBlock{};
-    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo leer el bloque de users.txt.";
-        file.close();
-        return false;
-    }
-
-    std::string content(usersBlock.b_content);
     std::stringstream ss(content);
     std::string line;
 
@@ -993,32 +1088,29 @@ bool FileSystemManager::Chgrp(const std::string& user,
         newContent += l + "\n";
     }
 
-    if (newContent.size() >= sizeof(usersBlock.b_content)) {
-        outMsg = "users.txt excede el tamaño de un bloque. Aun no se soportan multiples bloques.";
+        if (!WriteUsersTxt(file, sb, usersInode, newContent, outMsg)) {
         file.close();
         return false;
     }
 
-    std::memset(usersBlock.b_content, 0, sizeof(usersBlock.b_content));
-    std::strncpy(usersBlock.b_content, newContent.c_str(), sizeof(usersBlock.b_content) - 1);
-
-    file.seekp(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.write(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo escribir el bloque actualizado de users.txt.";
-        file.close();
-        return false;
-    }
-
-    usersInode.i_size = (int)newContent.size();
     std::string now = nowStringFS();
     std::memset(usersInode.i_mtime, 0, sizeof(usersInode.i_mtime));
     std::strncpy(usersInode.i_mtime, now.c_str(), sizeof(usersInode.i_mtime) - 1);
 
+    // escribir inodo actualizado
     file.seekp(sb.s_inode_start + sizeof(Inode));
     file.write(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
     if (!file) {
         outMsg = "No se pudo actualizar el inodo de users.txt.";
+        file.close();
+        return false;
+    }
+
+    // escribir superbloque actualizado
+    file.seekp(mp.start);
+    file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo actualizar el SuperBloque.";
         file.close();
         return false;
     }

@@ -1,5 +1,8 @@
 #pragma once
 #include <string>
+#include <fstream>
+#include "fs/Ext2Structs.h"
+
 
 class FileSystemManager {
 public:
@@ -14,4 +17,17 @@ public:
     static bool Chgrp(const std::string& user,
                       const std::string& group,
                       std::string& outMsg);
+
+private:
+    static bool ReadUsersTxt(std::fstream& file,
+                             const SuperBlock& sb,
+                             const Inode& usersInode,
+                             std::string& outContent,
+                             std::string& outMsg);
+
+    static bool WriteUsersTxt(std::fstream& file,
+                              SuperBlock& sb,
+                              Inode& usersInode,
+                              const std::string& newContent,
+                              std::string& outMsg);
 };
