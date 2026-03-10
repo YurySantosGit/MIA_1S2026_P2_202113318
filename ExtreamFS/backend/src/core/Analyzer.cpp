@@ -9,6 +9,7 @@
 #include <iostream>
 #include <algorithm>
 #include <regex>
+#include <vector>
 
 static std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -362,8 +363,108 @@ void Analyzer::ExecuteLine(const std::string& line) {
         return;
     }
 
+    if (parsed.command == "mkdir") {
+
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] mkdir requiere -path\n";
+            return;
+        }
+
+        std::string path = parsed.params["path"];
+
+        bool recursiveP = false;
+
+        if (parsed.params.count("p")) {
+            recursiveP = true;
+        }
+
+        std::string msg;
+
+        if (!FileSystemManager::Mkdir(path, recursiveP, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+
+        return;
+    }
+
+    if (parsed.command == "mkfile") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] mkfile requiere -path\n";
+            return;
+        }
+
+        std::string path = parsed.params["path"];
+        int size = 0;
+        std::string contPath;
+
+        if (parsed.params.count("size")) {
+            try {
+                size = std::stoi(parsed.params["size"]);
+            } catch (...) {
+                std::cout << "[ERROR] -size debe ser un entero valido\n";
+                return;
+            }
+        }
+
+        if (parsed.params.count("cont")) {
+            contPath = parsed.params["cont"];
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Mkfile(path, size, contPath, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "cat") {
+        std::vector<std::pair<int, std::string>> orderedFiles;
+
+        for (const auto& [key, value] : parsed.params) {
+            if (key.rfind("file", 0) == 0) {
+                std::string suffix = key.substr(4); // después de "file"
+                int num = 0;
+                try {
+                    num = std::stoi(suffix);
+                } catch (...) {
+                    continue;
+                }
+                orderedFiles.push_back({num, value});
+            }
+        }
+
+        if (orderedFiles.empty()) {
+            std::cout << "[ERROR] cat requiere al menos un parametro -fileN\n";
+            return;
+        }
+
+        std::sort(orderedFiles.begin(), orderedFiles.end(),
+                  [](const auto& a, const auto& b) {
+                      return a.first < b.first;
+                  });
+
+        std::vector<std::string> filePaths;
+        for (const auto& item : orderedFiles) {
+            filePaths.push_back(item.second);
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Cat(filePaths, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << msg << "\n";
+        }
+        return;
+    }
+
     std::cout << "[INFO] Comando reconocido pero no implementado: " << parsed.command << "\n";
 }
+
+
 
 bool Analyzer::ParseLine(const std::string& line, ParsedLine& out, std::string& error) {
     out = ParsedLine{};

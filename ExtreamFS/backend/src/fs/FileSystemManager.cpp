@@ -214,6 +214,163 @@ bool FileSystemManager::WriteUsersTxt(std::fstream& file,
     return true;
 }
 
+int FileSystemManager::AllocateFreeInode(std::fstream& file, SuperBlock& sb) {
+    file.seekg(sb.s_bm_inode_start);
+    for (int i = 0; i < sb.s_inodes_count; i++) {
+        char bit = '0';
+        file.read(&bit, 1);
+        if (!file) return -1;
+
+        if (bit == '0') {
+            file.seekp(sb.s_bm_inode_start + i);
+            char one = '1';
+            file.write(&one, 1);
+
+            sb.s_free_inodes_count--;
+            sb.s_first_ino = i + 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+int FileSystemManager::AllocateFreeBlock(std::fstream& file, SuperBlock& sb) {
+    file.seekg(sb.s_bm_block_start);
+    for (int i = 0; i < sb.s_blocks_count; i++) {
+        char bit = '0';
+        file.read(&bit, 1);
+        if (!file) return -1;
+
+        if (bit == '0') {
+            file.seekp(sb.s_bm_block_start + i);
+            char one = '1';
+            file.write(&one, 1);
+
+            sb.s_free_blocks_count--;
+            sb.s_first_blo = i + 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+int FileSystemManager::FindEntryInFolder(std::fstream& file,
+                                         const SuperBlock& sb,
+                                         const Inode& folderInode,
+                                         const std::string& name) {
+    for (int i = 0; i < 12; i++) { // solo directos por ahora
+        int blockIndex = folderInode.i_block[i];
+        if (blockIndex == -1) continue;
+
+        FolderBlock folderBlock{};
+        file.seekg(sb.s_block_start + blockIndex * (int)sizeof(FolderBlock));
+        file.read(reinterpret_cast<char*>(&folderBlock), sizeof(FolderBlock));
+        if (!file) return -1;
+
+        for (int j = 0; j < 4; j++) {
+            if (folderBlock.b_content[j].b_inodo == -1) continue;
+
+            std::string entryName(folderBlock.b_content[j].b_name);
+            entryName = entryName.c_str(); // limpia basura después del null
+            if (entryName == name) {
+                return folderBlock.b_content[j].b_inodo;
+            }
+        }
+    }
+
+    return -1;
+}
+
+bool FileSystemManager::AddEntryToFolder(std::fstream& file,
+                                         SuperBlock& sb,
+                                         Inode& parentInode,
+                                         int parentInodeIndex,
+                                         const std::string& name,
+                                         int childInodeIndex,
+                                         std::string& outMsg) {
+    outMsg.clear();
+
+    // 1) intentar meter la entrada en un bloque carpeta existente
+    for (int i = 0; i < 12; i++) {
+        int blockIndex = parentInode.i_block[i];
+        if (blockIndex == -1) continue;
+
+        FolderBlock folderBlock{};
+        file.seekg(sb.s_block_start + blockIndex * (int)sizeof(FolderBlock));
+        file.read(reinterpret_cast<char*>(&folderBlock), sizeof(FolderBlock));
+        if (!file) {
+            outMsg = "No se pudo leer un bloque carpeta del padre.";
+            return false;
+        }
+
+        for (int j = 0; j < 4; j++) {
+            if (folderBlock.b_content[j].b_inodo == -1) {
+                std::memset(folderBlock.b_content[j].b_name, 0, sizeof(folderBlock.b_content[j].b_name));
+                std::strncpy(folderBlock.b_content[j].b_name, name.c_str(),
+                             sizeof(folderBlock.b_content[j].b_name) - 1);
+                folderBlock.b_content[j].b_inodo = childInodeIndex;
+
+                file.seekp(sb.s_block_start + blockIndex * (int)sizeof(FolderBlock));
+                file.write(reinterpret_cast<char*>(&folderBlock), sizeof(FolderBlock));
+                if (!file) {
+                    outMsg = "No se pudo escribir el bloque carpeta del padre.";
+                    return false;
+                }
+
+                // actualizar inodo padre
+                std::string now = nowStringFS();
+                std::memset(parentInode.i_mtime, 0, sizeof(parentInode.i_mtime));
+                std::strncpy(parentInode.i_mtime, now.c_str(), sizeof(parentInode.i_mtime) - 1);
+
+                file.seekp(sb.s_inode_start + parentInodeIndex * (int)sizeof(Inode));
+                file.write(reinterpret_cast<char*>(&parentInode), sizeof(Inode));
+                return (bool)file;
+            }
+        }
+    }
+
+    // 2) si no hay espacio, crear nuevo bloque carpeta
+    for (int i = 0; i < 12; i++) {
+        if (parentInode.i_block[i] == -1) {
+            int newBlockIndex = AllocateFreeBlock(file, sb);
+            if (newBlockIndex == -1) {
+                outMsg = "No hay bloques libres para expandir la carpeta padre.";
+                return false;
+            }
+
+            FolderBlock newFolderBlock{};
+            for (int j = 0; j < 4; j++) {
+                newFolderBlock.b_content[j].b_inodo = -1;
+                std::memset(newFolderBlock.b_content[j].b_name, 0, sizeof(newFolderBlock.b_content[j].b_name));
+            }
+
+            std::strncpy(newFolderBlock.b_content[0].b_name, name.c_str(),
+                         sizeof(newFolderBlock.b_content[0].b_name) - 1);
+            newFolderBlock.b_content[0].b_inodo = childInodeIndex;
+
+            file.seekp(sb.s_block_start + newBlockIndex * (int)sizeof(FolderBlock));
+            file.write(reinterpret_cast<char*>(&newFolderBlock), sizeof(FolderBlock));
+            if (!file) {
+                outMsg = "No se pudo escribir el nuevo bloque carpeta del padre.";
+                return false;
+            }
+
+            parentInode.i_block[i] = newBlockIndex;
+
+            std::string now = nowStringFS();
+            std::memset(parentInode.i_mtime, 0, sizeof(parentInode.i_mtime));
+            std::strncpy(parentInode.i_mtime, now.c_str(), sizeof(parentInode.i_mtime) - 1);
+
+            file.seekp(sb.s_inode_start + parentInodeIndex * (int)sizeof(Inode));
+            file.write(reinterpret_cast<char*>(&parentInode), sizeof(Inode));
+            return (bool)file;
+        }
+    }
+
+    outMsg = "La carpeta padre ya no tiene apuntadores directos disponibles.";
+    return false;
+}
+
 bool FileSystemManager::Mkfs(const std::string& id, std::string& outMsg) {
     outMsg.clear();
 
@@ -1118,5 +1275,587 @@ bool FileSystemManager::Chgrp(const std::string& user,
     file.close();
 
     outMsg = "Grupo del usuario actualizado correctamente: " + user + " -> " + group;
+    return true;
+}
+
+static std::string buildFileContent(int size) {
+    if (size <= 0) return "";
+
+    std::string content;
+    content.reserve((size_t)size);
+
+    for (int i = 0; i < size; i++) {
+        content.push_back((char)('0' + (i % 10)));
+    }
+
+    return content;
+}
+
+static bool readFileContent(std::fstream& file,
+                            const SuperBlock& sb,
+                            const Inode& inode,
+                            std::string& outContent,
+                            std::string& outMsg) {
+    outContent.clear();
+    outMsg.clear();
+
+    for (int i = 0; i < 12; i++) { // solo directos por ahora
+        int blockIndex = inode.i_block[i];
+        if (blockIndex == -1) continue;
+
+        FileBlock fb{};
+        file.seekg(sb.s_block_start + blockIndex * (int)sizeof(FileBlock));
+        file.read(reinterpret_cast<char*>(&fb), sizeof(FileBlock));
+        if (!file) {
+            outMsg = "No se pudo leer un bloque del archivo.";
+            return false;
+        }
+
+        outContent.append(fb.b_content, sizeof(fb.b_content));
+    }
+
+    if ((int)outContent.size() > inode.i_size) {
+        outContent = outContent.substr(0, inode.i_size);
+    }
+
+    return true;
+}
+
+bool FileSystemManager::Mkdir(const std::string& path, bool recursiveP, std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (path.empty()) {
+        outMsg = "El parametro -path es obligatorio.";
+        return false;
+    }
+
+    if (path[0] != '/') {
+        outMsg = "La ruta debe ser absoluta y comenzar con '/'.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    std::vector<std::string> parts = splitFS(path, '/');
+    std::vector<std::string> cleanParts;
+    for (const auto& p : parts) {
+        std::string t = trimFS(p);
+        if (!t.empty()) cleanParts.push_back(t);
+    }
+
+    if (cleanParts.empty()) {
+        outMsg = "La ruta no contiene nombres de carpetas validos.";
+        file.close();
+        return false;
+    }
+
+    int currentInodeIndex = 0; // root
+    Inode currentInode{};
+    file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+    file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+
+    for (size_t i = 0; i < cleanParts.size(); i++) {
+        const std::string& folderName = cleanParts[i];
+
+        int foundInode = FindEntryInFolder(file, sb, currentInode, folderName);
+
+        if (foundInode != -1) {
+            // ya existe, avanzar
+            currentInodeIndex = foundInode;
+            file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+            file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+            continue;
+        }
+
+        // no existe
+        bool isLast = (i == cleanParts.size() - 1);
+        if (!recursiveP && !isLast) {
+            outMsg = "No existe una carpeta intermedia y no se uso -p: " + folderName;
+            file.close();
+            return false;
+        }
+
+        int newInodeIndex = AllocateFreeInode(file, sb);
+        if (newInodeIndex == -1) {
+            outMsg = "No hay inodos libres para crear la carpeta: " + folderName;
+            file.close();
+            return false;
+        }
+
+        int newBlockIndex = AllocateFreeBlock(file, sb);
+        if (newBlockIndex == -1) {
+            outMsg = "No hay bloques libres para crear la carpeta: " + folderName;
+            file.close();
+            return false;
+        }
+
+        // Crear inodo de nueva carpeta
+        Inode newFolderInode{};
+        newFolderInode.i_uid = 1;
+        newFolderInode.i_gid = 1;
+        newFolderInode.i_size = 0;
+        std::string now = nowStringFS();
+        std::strncpy(newFolderInode.i_atime, now.c_str(), sizeof(newFolderInode.i_atime) - 1);
+        std::strncpy(newFolderInode.i_ctime, now.c_str(), sizeof(newFolderInode.i_ctime) - 1);
+        std::strncpy(newFolderInode.i_mtime, now.c_str(), sizeof(newFolderInode.i_mtime) - 1);
+        for (int& ptr : newFolderInode.i_block) ptr = -1;
+        newFolderInode.i_block[0] = newBlockIndex;
+        newFolderInode.i_type = '0';
+        std::memcpy(newFolderInode.i_perm, "664", 3);
+
+        // Crear bloque carpeta nuevo con . y ..
+        FolderBlock newFolderBlock{};
+        for (int j = 0; j < 4; j++) {
+            newFolderBlock.b_content[j].b_inodo = -1;
+            std::memset(newFolderBlock.b_content[j].b_name, 0, sizeof(newFolderBlock.b_content[j].b_name));
+        }
+
+        std::strncpy(newFolderBlock.b_content[0].b_name, ".", sizeof(newFolderBlock.b_content[0].b_name) - 1);
+        newFolderBlock.b_content[0].b_inodo = newInodeIndex;
+
+        std::strncpy(newFolderBlock.b_content[1].b_name, "..", sizeof(newFolderBlock.b_content[1].b_name) - 1);
+        newFolderBlock.b_content[1].b_inodo = currentInodeIndex;
+
+        // Escribir inodo nuevo
+        file.seekp(sb.s_inode_start + newInodeIndex * (int)sizeof(Inode));
+        file.write(reinterpret_cast<char*>(&newFolderInode), sizeof(Inode));
+        if (!file) {
+            outMsg = "No se pudo escribir el nuevo inodo de carpeta.";
+            file.close();
+            return false;
+        }
+
+        // Escribir bloque nuevo
+        file.seekp(sb.s_block_start + newBlockIndex * (int)sizeof(FolderBlock));
+        file.write(reinterpret_cast<char*>(&newFolderBlock), sizeof(FolderBlock));
+        if (!file) {
+            outMsg = "No se pudo escribir el nuevo bloque de carpeta.";
+            file.close();
+            return false;
+        }
+
+        // Agregar entrada al padre
+        if (!AddEntryToFolder(file, sb, currentInode, currentInodeIndex, folderName, newInodeIndex, outMsg)) {
+            file.close();
+            return false;
+        }
+
+        // escribir superbloque actualizado
+        file.seekp(mp.start);
+        file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+        if (!file) {
+            outMsg = "No se pudo actualizar el SuperBloque.";
+            file.close();
+            return false;
+        }
+
+        // avanzar al nuevo directorio
+        currentInodeIndex = newInodeIndex;
+        currentInode = newFolderInode;
+    }
+
+    file.close();
+    outMsg = "Carpeta creada correctamente: " + path;
+    return true;
+}
+
+bool FileSystemManager::Mkfile(const std::string& path,
+                               int size,
+                               const std::string& contPath,
+                               std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (path.empty()) {
+        outMsg = "El parametro -path es obligatorio.";
+        return false;
+    }
+
+    if (path[0] != '/') {
+        outMsg = "La ruta debe ser absoluta y comenzar con '/'.";
+        return false;
+    }
+
+    if (size < 0) {
+        outMsg = "El parametro -size no puede ser negativo.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    // Separar ruta padre y nombre del archivo
+    size_t lastSlash = path.find_last_of('/');
+    if (lastSlash == std::string::npos) {
+        outMsg = "Ruta invalida.";
+        file.close();
+        return false;
+    }
+
+    std::string parentPath = path.substr(0, lastSlash);
+    std::string fileName = path.substr(lastSlash + 1);
+
+    if (fileName.empty()) {
+        outMsg = "El nombre del archivo es invalido.";
+        file.close();
+        return false;
+    }
+
+    if (parentPath.empty()) {
+        parentPath = "/";
+    }
+
+    // Navegar hasta carpeta padre
+    std::vector<std::string> parts = splitFS(parentPath, '/');
+    std::vector<std::string> cleanParts;
+    for (const auto& p : parts) {
+        std::string t = trimFS(p);
+        if (!t.empty()) cleanParts.push_back(t);
+    }
+
+    int currentInodeIndex = 0; // root
+    Inode currentInode{};
+    file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+    file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo raiz.";
+        file.close();
+        return false;
+    }
+
+    for (const auto& folderName : cleanParts) {
+        int foundInode = FindEntryInFolder(file, sb, currentInode, folderName);
+        if (foundInode == -1) {
+            outMsg = "No existe la carpeta padre: " + folderName;
+            file.close();
+            return false;
+        }
+
+        currentInodeIndex = foundInode;
+        file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+        file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+        if (!file) {
+            outMsg = "No se pudo leer un inodo de carpeta padre.";
+            file.close();
+            return false;
+        }
+    }
+
+    // Verificar que no exista ya el archivo
+    int existing = FindEntryInFolder(file, sb, currentInode, fileName);
+    if (existing != -1) {
+        outMsg = "Ya existe un archivo o carpeta con ese nombre: " + fileName;
+        file.close();
+        return false;
+    }
+
+    // Generar contenido
+    std::string content;
+    if (!contPath.empty()) {
+        std::ifstream external(contPath, std::ios::binary);
+        if (!external.is_open()) {
+            outMsg = "No se pudo abrir el archivo indicado en -cont: " + contPath;
+            file.close();
+            return false;
+        }
+
+        std::stringstream buffer;
+        buffer << external.rdbuf();
+        content = buffer.str();
+        external.close();
+    } else {
+        content = buildFileContent(size);
+    }
+
+    int newInodeIndex = AllocateFreeInode(file, sb);
+    if (newInodeIndex == -1) {
+        outMsg = "No hay inodos libres para crear el archivo.";
+        file.close();
+        return false;
+    }
+
+    int requiredBlocks = (int)((content.size() + sizeof(FileBlock) - 1) / sizeof(FileBlock));
+    if (requiredBlocks <= 0) requiredBlocks = 1;
+
+    if (requiredBlocks > 12) {
+        outMsg = "El archivo requiere mas de 12 bloques directos. Aun no se soportan indirectos.";
+        file.close();
+        return false;
+    }
+
+    std::vector<int> assignedBlocks;
+    for (int i = 0; i < requiredBlocks; i++) {
+        int blockIndex = AllocateFreeBlock(file, sb);
+        if (blockIndex == -1) {
+            outMsg = "No hay bloques libres para crear el archivo.";
+            file.close();
+            return false;
+        }
+        assignedBlocks.push_back(blockIndex);
+    }
+
+    // Crear inodo de archivo
+    Inode newFileInode{};
+    newFileInode.i_uid = 1;
+    newFileInode.i_gid = 1;
+    newFileInode.i_size = (int)content.size();
+
+    std::string now = nowStringFS();
+    std::strncpy(newFileInode.i_atime, now.c_str(), sizeof(newFileInode.i_atime) - 1);
+    std::strncpy(newFileInode.i_ctime, now.c_str(), sizeof(newFileInode.i_ctime) - 1);
+    std::strncpy(newFileInode.i_mtime, now.c_str(), sizeof(newFileInode.i_mtime) - 1);
+
+    for (int& ptr : newFileInode.i_block) ptr = -1;
+    for (size_t i = 0; i < assignedBlocks.size(); i++) {
+        newFileInode.i_block[i] = assignedBlocks[i];
+    }
+
+    newFileInode.i_type = '1';
+    std::memcpy(newFileInode.i_perm, "664", 3);
+
+    // Escribir bloques del archivo
+    size_t offset = 0;
+    for (size_t i = 0; i < assignedBlocks.size(); i++) {
+        FileBlock fb{};
+        std::memset(fb.b_content, 0, sizeof(fb.b_content));
+
+        size_t remaining = content.size() - offset;
+        size_t chunk = std::min(remaining, sizeof(fb.b_content));
+        if (chunk > 0) {
+            std::memcpy(fb.b_content, content.data() + offset, chunk);
+        }
+
+        file.seekp(sb.s_block_start + assignedBlocks[i] * (int)sizeof(FileBlock));
+        file.write(reinterpret_cast<char*>(&fb), sizeof(FileBlock));
+        if (!file) {
+            outMsg = "No se pudo escribir un bloque del archivo.";
+            file.close();
+            return false;
+        }
+
+        offset += chunk;
+    }
+
+    // Si size=0 y cont vacío, igual dejamos el archivo con 1 bloque vacío
+    if (content.empty() && !assignedBlocks.empty()) {
+        FileBlock fb{};
+        std::memset(fb.b_content, 0, sizeof(fb.b_content));
+        file.seekp(sb.s_block_start + assignedBlocks[0] * (int)sizeof(FileBlock));
+        file.write(reinterpret_cast<char*>(&fb), sizeof(FileBlock));
+    }
+
+    // Escribir inodo de archivo
+    file.seekp(sb.s_inode_start + newInodeIndex * (int)sizeof(Inode));
+    file.write(reinterpret_cast<char*>(&newFileInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo escribir el inodo del archivo.";
+        file.close();
+        return false;
+    }
+
+    // Enlazar en carpeta padre
+    if (!AddEntryToFolder(file, sb, currentInode, currentInodeIndex, fileName, newInodeIndex, outMsg)) {
+        file.close();
+        return false;
+    }
+
+    // Escribir superbloque actualizado
+    file.seekp(mp.start);
+    file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo actualizar el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    file.close();
+    outMsg = "Archivo creado correctamente: " + path;
+    return true;
+}
+
+bool FileSystemManager::Cat(const std::vector<std::string>& filePaths, std::string& outMsg) {
+    outMsg.clear();
+
+    if (!SessionManager::currentSession.active) {
+        outMsg = "No hay una sesion activa.";
+        return false;
+    }
+
+    if (filePaths.empty()) {
+        outMsg = "No se enviaron rutas para cat.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    std::string finalOutput;
+
+    for (size_t fileIdx = 0; fileIdx < filePaths.size(); fileIdx++) {
+        const std::string& path = filePaths[fileIdx];
+
+        if (path.empty() || path[0] != '/') {
+            outMsg = "Ruta invalida en cat: " + path;
+            file.close();
+            return false;
+        }
+
+        size_t lastSlash = path.find_last_of('/');
+        if (lastSlash == std::string::npos) {
+            outMsg = "Ruta invalida en cat: " + path;
+            file.close();
+            return false;
+        }
+
+        std::string parentPath = path.substr(0, lastSlash);
+        std::string fileName = path.substr(lastSlash + 1);
+
+        if (fileName.empty()) {
+            outMsg = "Nombre de archivo invalido en cat: " + path;
+            file.close();
+            return false;
+        }
+
+        if (parentPath.empty()) {
+            parentPath = "/";
+        }
+
+        // navegar hasta carpeta padre
+        std::vector<std::string> parts = splitFS(parentPath, '/');
+        std::vector<std::string> cleanParts;
+        for (const auto& p : parts) {
+            std::string t = trimFS(p);
+            if (!t.empty()) cleanParts.push_back(t);
+        }
+
+        int currentInodeIndex = 0; // root
+        Inode currentInode{};
+        file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+        file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+        if (!file) {
+            outMsg = "No se pudo leer el inodo raiz.";
+            file.close();
+            return false;
+        }
+
+        for (const auto& folderName : cleanParts) {
+            int foundInode = FindEntryInFolder(file, sb, currentInode, folderName);
+            if (foundInode == -1) {
+                outMsg = "No existe carpeta en la ruta: " + folderName;
+                file.close();
+                return false;
+            }
+
+            currentInodeIndex = foundInode;
+            file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+            file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+            if (!file) {
+                outMsg = "No se pudo leer un inodo al navegar cat.";
+                file.close();
+                return false;
+            }
+        }
+
+        // buscar archivo dentro de carpeta padre
+        int fileInodeIndex = FindEntryInFolder(file, sb, currentInode, fileName);
+        if (fileInodeIndex == -1) {
+            outMsg = "No existe el archivo: " + path;
+            file.close();
+            return false;
+        }
+
+        Inode fileInode{};
+        file.seekg(sb.s_inode_start + fileInodeIndex * (int)sizeof(Inode));
+        file.read(reinterpret_cast<char*>(&fileInode), sizeof(Inode));
+        if (!file) {
+            outMsg = "No se pudo leer el inodo del archivo: " + path;
+            file.close();
+            return false;
+        }
+
+        if (fileInode.i_type != '1') {
+            outMsg = "La ruta no corresponde a un archivo: " + path;
+            file.close();
+            return false;
+        }
+
+        std::string fileContent;
+        if (!readFileContent(file, sb, fileInode, fileContent, outMsg)) {
+            file.close();
+            return false;
+        }
+
+        finalOutput += fileContent;
+        if (fileIdx + 1 < filePaths.size()) {
+            finalOutput += "\n";
+        }
+    }
+
+    file.close();
+    outMsg = finalOutput;
     return true;
 }

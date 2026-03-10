@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <fstream>
 #include "fs/Ext2Structs.h"
 
@@ -18,6 +19,15 @@ public:
                       const std::string& group,
                       std::string& outMsg);
 
+    static bool Mkdir(const std::string& path, bool recursiveP, std::string& outMsg);
+
+    static bool Mkfile(const std::string& path,
+                       int size,
+                       const std::string& contPath,
+                       std::string& outMsg);
+
+    static bool Cat(const std::vector<std::string>& filePaths, std::string& outMsg);
+
 private:
     static bool ReadUsersTxt(std::fstream& file,
                              const SuperBlock& sb,
@@ -30,4 +40,20 @@ private:
                               Inode& usersInode,
                               const std::string& newContent,
                               std::string& outMsg);
+
+    static int FindEntryInFolder(std::fstream& file,
+                                 const SuperBlock& sb,
+                                 const Inode& folderInode,
+                                 const std::string& name);
+
+    static bool AddEntryToFolder(std::fstream& file,
+                                 SuperBlock& sb,
+                                 Inode& parentInode,
+                                 int parentInodeIndex,
+                                 const std::string& name,
+                                 int childInodeIndex,
+                                 std::string& outMsg);
+
+    static int AllocateFreeInode(std::fstream& file, SuperBlock& sb);
+    static int AllocateFreeBlock(std::fstream& file, SuperBlock& sb);
 };
