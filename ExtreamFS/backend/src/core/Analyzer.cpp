@@ -413,12 +413,42 @@ void Analyzer::ExecuteLine(const std::string& line) {
         }
 
         std::string msg;
-        if (!FileSystemManager::Mkfile(path, size, contPath, msg)) {
-            std::cout << "[ERROR] " << msg << "\n";
-        } else {
-            std::cout << "[OK] " << msg << "\n";
-        }
-        return;
+            if (parsed.command == "mkfile") {
+                if (!parsed.params.count("path")) {
+                    std::cout << "[ERROR] mkfile requiere -path\n";
+                    return;
+                }
+
+                std::string path = parsed.params["path"];
+                int size = 0;
+                std::string contPath;
+                bool recursive = false;
+
+                if (parsed.params.count("size")) {
+                    try {
+                        size = std::stoi(parsed.params["size"]);
+                    } catch (...) {
+                        std::cout << "[ERROR] -size debe ser un entero valido\n";
+                        return;
+                    }
+                }
+
+                if (parsed.params.count("cont")) {
+                    contPath = parsed.params["cont"];
+                }
+
+                if (parsed.params.count("r")) {
+                    recursive = true;
+                }
+
+                std::string msg;
+                if (!FileSystemManager::Mkfile(path, size, contPath, recursive, msg)) {
+                    std::cout << "[ERROR] " << msg << "\n";
+                } else {
+                    std::cout << "[OK] " << msg << "\n";
+                }
+                return;
+            }
     }
 
     if (parsed.command == "cat") {
@@ -489,7 +519,7 @@ bool Analyzer::ParseLine(const std::string& line, ParsedLine& out, std::string& 
     rest = trim(rest);
 
     // -key=value donde value puede ser "..." o token sin espacios
-    std::regex re(R"(-([A-Za-z_]\w*)=("[^"]*"|\S+))");
+    std::regex re(R"(-([A-Za-z_]\w*)(=("[^"]*"|\S+))?)");
 
     std::sregex_iterator it(rest.begin(), rest.end(), re);
     std::sregex_iterator end;
@@ -498,7 +528,15 @@ bool Analyzer::ParseLine(const std::string& line, ParsedLine& out, std::string& 
 
     for (; it != end; ++it) {
         std::string key = toLower((*it)[1].str());
-        std::string val = stripQuotes((*it)[2].str());
+        std::string val;
+
+        // Si viene con =valor
+        if ((*it)[3].matched) {
+            val = stripQuotes((*it)[3].str());
+        } else {
+            // Flag sin valor, por ejemplo -p o -r
+            val = "";
+        }
 
         if (out.params.count(key)) {
             error = "Parametro repetido: -" + key;
@@ -510,15 +548,18 @@ bool Analyzer::ParseLine(const std::string& line, ParsedLine& out, std::string& 
         // marcar consumido
         size_t pos = consumed.find((*it)[0].str());
         if (pos != std::string::npos) {
-            consumed.replace(pos, (*it)[0].str().size(),
-                             std::string((*it)[0].str().size(), ' '));
+            consumed.replace(
+                pos,
+                (*it)[0].str().size(),
+                std::string((*it)[0].str().size(), ' ')
+            );
         }
     }
 
     // si sobran cosas, hay parametros mal formados
     std::string leftover = trim(consumed);
     if (!leftover.empty()) {
-        error = "Texto/parametros no reconocidos o sin '=': " + leftover;
+        error = "Texto/parametros no reconocidos: " + leftover;
         return false;
     }
 

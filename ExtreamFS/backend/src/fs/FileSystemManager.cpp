@@ -1486,6 +1486,7 @@ bool FileSystemManager::Mkdir(const std::string& path, bool recursiveP, std::str
 bool FileSystemManager::Mkfile(const std::string& path,
                                int size,
                                const std::string& contPath,
+                               bool recursive,
                                std::string& outMsg) {
     outMsg.clear();
 
@@ -1572,9 +1573,55 @@ bool FileSystemManager::Mkfile(const std::string& path,
     for (const auto& folderName : cleanParts) {
         int foundInode = FindEntryInFolder(file, sb, currentInode, folderName);
         if (foundInode == -1) {
-            outMsg = "No existe la carpeta padre: " + folderName;
-            file.close();
-            return false;
+            if (!recursive) {
+                outMsg = "No existe la carpeta padre: " + folderName;
+                file.close();
+                return false;
+            }
+
+            // crear toda la ruta padre con mkdir -p
+            std::string mkdirMsg;
+            if (!Mkdir(parentPath, true, mkdirMsg)) {
+                outMsg = "No se pudo crear la ruta padre con -r: " + parentPath;
+                file.close();
+                return false;
+            }
+
+            // volver a empezar la navegación desde root
+            currentInodeIndex = 0;
+            file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+            file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+            if (!file) {
+                outMsg = "No se pudo releer el inodo raiz tras mkdir -r.";
+                file.close();
+                return false;
+            }
+
+            bool pathOk = true;
+            for (const auto& retryFolder : cleanParts) {
+                int retryInode = FindEntryInFolder(file, sb, currentInode, retryFolder);
+                if (retryInode == -1) {
+                    pathOk = false;
+                    break;
+                }
+
+                currentInodeIndex = retryInode;
+                file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+                file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+                if (!file) {
+                    outMsg = "No se pudo releer un inodo de carpeta padre.";
+                    file.close();
+                    return false;
+                }
+            }
+
+            if (!pathOk) {
+                outMsg = "No se pudo reconstruir la ruta padre tras usar -r.";
+                file.close();
+                return false;
+            }
+
+            break;
         }
 
         currentInodeIndex = foundInode;
