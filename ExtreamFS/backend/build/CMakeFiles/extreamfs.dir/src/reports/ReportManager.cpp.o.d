@@ -1,7 +1,7 @@
-CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/core/Analyzer.cpp \
+CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/reports/ReportManager.cpp \
  /usr/include/stdc-predef.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/core/Analyzer.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/reports/ReportManager.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -116,24 +116,17 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: \
  /usr/include/c++/13/bits/memory_resource.h /usr/include/c++/13/cstddef \
  /usr/include/c++/13/bits/uses_allocator.h \
  /usr/include/c++/13/bits/uses_allocator_args.h /usr/include/c++/13/tuple \
- /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
- /usr/include/c++/13/ext/aligned_buffer.h \
- /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/stl_map.h \
- /usr/include/c++/13/bits/stl_multimap.h \
- /usr/include/c++/13/bits/erase_if.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/DiskManagement.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/Structs.h \
- /usr/include/c++/13/cstdint \
- /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
  /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/MountManager.h \
  /usr/include/c++/13/vector /usr/include/c++/13/bits/stl_uninitialized.h \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/Structs.h \
+ /usr/include/c++/13/cstdint \
+ /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+ /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/Ext2Structs.h \
  /usr/include/c++/13/fstream /usr/include/c++/13/istream \
  /usr/include/c++/13/ios /usr/include/c++/13/exception \
  /usr/include/c++/13/bits/exception_ptr.h \
@@ -173,41 +166,29 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: \
  /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/bits/codecvt.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
- /usr/include/c++/13/bits/fstream.tcc \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/Ext2Structs.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/SessionManager.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/reports/ReportManager.h \
- /usr/include/c++/13/iostream /usr/include/c++/13/algorithm \
- /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/filesystem \
+ /usr/include/c++/13/bits/fs_fwd.h /usr/include/c++/13/bits/chrono.h \
+ /usr/include/c++/13/ratio /usr/include/c++/13/limits \
+ /usr/include/c++/13/ctime /usr/include/c++/13/bits/parse_numbers.h \
+ /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
+ /usr/include/c++/13/bits/locale_facets_nonio.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
+ /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
+ /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/sstream \
+ /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/codecvt \
+ /usr/include/c++/13/ext/concurrence.h \
+ /usr/include/c++/13/bits/shared_ptr.h \
+ /usr/include/c++/13/bits/shared_ptr_base.h \
+ /usr/include/c++/13/bits/allocated_ptr.h \
+ /usr/include/c++/13/bits/unique_ptr.h \
+ /usr/include/c++/13/ext/aligned_buffer.h \
+ /usr/include/c++/13/bits/fs_dir.h /usr/include/c++/13/bits/fs_ops.h \
+ /usr/include/c++/13/algorithm /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/stl_heap.h \
  /usr/include/c++/13/bits/uniform_int_dist.h \
  /usr/include/c++/13/bits/stl_tempbuf.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/regex \
- /usr/include/c++/13/bitset /usr/include/c++/13/locale \
- /usr/include/c++/13/bits/locale_facets_nonio.h /usr/include/c++/13/ctime \
- /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
- /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
- /usr/include/c++/13/bits/locale_conv.h /usr/include/c++/13/sstream \
- /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/stack \
- /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
- /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_stack.h \
- /usr/include/c++/13/bits/shared_ptr.h \
- /usr/include/c++/13/bits/shared_ptr_base.h \
- /usr/include/c++/13/bits/allocated_ptr.h \
- /usr/include/c++/13/bits/unique_ptr.h \
- /usr/include/c++/13/ext/concurrence.h \
- /usr/include/c++/13/bits/std_function.h \
- /usr/include/c++/13/bits/regex_constants.h \
- /usr/include/c++/13/bits/regex_error.h \
- /usr/include/c++/13/bits/regex_automaton.h \
- /usr/include/c++/13/bits/regex_automaton.tcc \
- /usr/include/c++/13/bits/regex_scanner.h \
- /usr/include/c++/13/bits/regex_scanner.tcc \
- /usr/include/c++/13/bits/regex_compiler.h \
- /usr/include/c++/13/bits/regex_compiler.tcc \
- /usr/include/c++/13/bits/regex.h /usr/include/c++/13/bits/regex.tcc \
- /usr/include/c++/13/bits/regex_executor.h \
- /usr/include/c++/13/bits/regex_executor.tcc
+ /usr/include/c++/13/pstl/execution_defs.h

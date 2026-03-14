@@ -22,4 +22,18 @@ public:
                                     const std::string& name,
                                     Partition& outPartition,
                                     std::string& outMsg);
+
+private:
+    static bool CreatePrimaryOrExtended(int sizeBytes,
+                                        const std::string& path,
+                                        const std::string& name,
+                                        char type,
+                                        char fit,
+                                        std::string& outMsg);
+
+    static bool CreateLogical(int sizeBytes,
+                              const std::string& path,
+                              const std::string& name,
+                              char fit,
+                              std::string& outMsg);
 };

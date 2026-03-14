@@ -6,6 +6,8 @@
 #include "fs/FileSystemManager.h"
 #include "fs/SessionManager.h"
 
+#include "reports/ReportManager.h"
+
 #include <iostream>
 #include <algorithm>
 #include <regex>
@@ -69,12 +71,6 @@ void Analyzer::ExecuteLine(const std::string& line) {
         return;
     }
 
-    // Debug temporal
-    std::cout << "[CMD] " << parsed.command << "\n";
-    for (const auto& [k, v] : parsed.params) {
-        std::cout << "  - " << k << " = " << v << "\n";
-    }
-
     // ============ DISPATCH ============
     if (parsed.command == "mkdisk") {
         if (!parsed.params.count("size") || !parsed.params.count("path")) {
@@ -103,21 +99,21 @@ void Analyzer::ExecuteLine(const std::string& line) {
         return;
     }
 
-        if (parsed.command == "rmdisk") {
-            if (!parsed.params.count("path")) {
-                std::cout << "[ERROR] rmdisk requiere -path\n";
-                return;
-            }
-
-            std::string path = parsed.params["path"];
-            std::string msg;
-
-            if (!DiskManagement::Rmdisk(path, msg)) {
-                std::cout << "[ERROR] " << msg << "\n";
-            } else {
-                std::cout << "[OK] " << msg << "\n";
-            }
+    if (parsed.command == "rmdisk") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] rmdisk requiere -path\n";
             return;
+        }
+
+        std::string path = parsed.params["path"];
+        std::string msg;
+
+        if (!DiskManagement::Rmdisk(path, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
     }
 
     if (parsed.command == "fdisk") {
@@ -398,6 +394,7 @@ void Analyzer::ExecuteLine(const std::string& line) {
         std::string path = parsed.params["path"];
         int size = 0;
         std::string contPath;
+        bool recursive = false;
 
         if (parsed.params.count("size")) {
             try {
@@ -412,43 +409,17 @@ void Analyzer::ExecuteLine(const std::string& line) {
             contPath = parsed.params["cont"];
         }
 
+        if (parsed.params.count("r")) {
+            recursive = true;
+        }
+
         std::string msg;
-            if (parsed.command == "mkfile") {
-                if (!parsed.params.count("path")) {
-                    std::cout << "[ERROR] mkfile requiere -path\n";
-                    return;
-                }
-
-                std::string path = parsed.params["path"];
-                int size = 0;
-                std::string contPath;
-                bool recursive = false;
-
-                if (parsed.params.count("size")) {
-                    try {
-                        size = std::stoi(parsed.params["size"]);
-                    } catch (...) {
-                        std::cout << "[ERROR] -size debe ser un entero valido\n";
-                        return;
-                    }
-                }
-
-                if (parsed.params.count("cont")) {
-                    contPath = parsed.params["cont"];
-                }
-
-                if (parsed.params.count("r")) {
-                    recursive = true;
-                }
-
-                std::string msg;
-                if (!FileSystemManager::Mkfile(path, size, contPath, recursive, msg)) {
-                    std::cout << "[ERROR] " << msg << "\n";
-                } else {
-                    std::cout << "[OK] " << msg << "\n";
-                }
-                return;
-            }
+        if (!FileSystemManager::Mkfile(path, size, contPath, recursive, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
     }
 
     if (parsed.command == "cat") {
@@ -490,6 +461,70 @@ void Analyzer::ExecuteLine(const std::string& line) {
         }
         return;
     }
+
+    if (parsed.command == "rep") {
+        if (!parsed.params.count("name") ||
+            !parsed.params.count("path") ||
+            !parsed.params.count("id")) {
+            std::cout << "[ERROR] rep requiere -name, -path y -id\n";
+            return;
+        }
+
+        std::string name = toLower(parsed.params["name"]);
+        std::string path = parsed.params["path"];
+        std::string id   = parsed.params["id"];
+        std::string msg;
+
+        if (name == "sb") {
+            if (!ReportManager::RepSb(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "mbr") {
+            if (!ReportManager::RepMbr(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "disk") {
+            if (!ReportManager::RepDisk(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "inode") {
+            if (!ReportManager::RepInode(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "block") {
+            if (!ReportManager::RepBlock(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        std::cout << "[ERROR] Reporte no implementado aun: " << name << "\n";
+        return;
+    }
+
+    
 
     std::cout << "[INFO] Comando reconocido pero no implementado: " << parsed.command << "\n";
 }

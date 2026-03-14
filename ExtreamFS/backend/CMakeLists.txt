@@ -19,6 +19,7 @@ set(SOURCES
     src/disk/MountManager.cpp
     src/fs/FileSystemManager.cpp
     src/fs/SessionManager.cpp
+    src/reports/ReportManager.cpp
 )
 
 # =========================

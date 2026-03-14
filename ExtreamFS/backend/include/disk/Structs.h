@@ -20,4 +20,13 @@ struct MBR {
     Partition mbr_partitions[4];
 };
 
+struct EBR {
+    char part_mount;      // '0' libre, '1' ocupada
+    char part_fit;        // 'b', 'f', 'w'
+    int32_t part_start;   // inicio del EBR actual
+    int32_t part_size;    // tamaño lógico (sin contar el EBR)
+    int32_t part_next;    // siguiente EBR, -1 si no hay
+    char part_name[16];   // nombre de la lógica
+};
+
 #pragma pack(pop)

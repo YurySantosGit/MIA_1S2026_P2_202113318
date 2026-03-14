@@ -14,6 +14,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp" "CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o.d"
   "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/SessionManager.cpp" "CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o.d"
   "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/main.cpp" "CMakeFiles/extreamfs.dir/src/main.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/main.cpp.o.d"
+  "/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/reports/ReportManager.cpp" "CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o" "gcc" "CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

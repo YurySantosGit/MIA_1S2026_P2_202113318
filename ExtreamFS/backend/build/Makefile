@@ -273,6 +273,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/reports/ReportManager.o: src/reports/ReportManager.cpp.o
+.PHONY : src/reports/ReportManager.o
+
+# target to build an object file
+src/reports/ReportManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o
+.PHONY : src/reports/ReportManager.cpp.o
+
+src/reports/ReportManager.i: src/reports/ReportManager.cpp.i
+.PHONY : src/reports/ReportManager.i
+
+# target to preprocess a source file
+src/reports/ReportManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.i
+.PHONY : src/reports/ReportManager.cpp.i
+
+src/reports/ReportManager.s: src/reports/ReportManager.cpp.s
+.PHONY : src/reports/ReportManager.s
+
+# target to generate assembly for a file
+src/reports/ReportManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.s
+.PHONY : src/reports/ReportManager.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -300,6 +324,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/reports/ReportManager.o"
+	@echo "... src/reports/ReportManager.i"
+	@echo "... src/reports/ReportManager.s"
 .PHONY : help
 
 

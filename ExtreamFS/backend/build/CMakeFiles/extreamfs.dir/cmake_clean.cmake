@@ -11,6 +11,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o.d"
   "CMakeFiles/extreamfs.dir/src/main.cpp.o"
   "CMakeFiles/extreamfs.dir/src/main.cpp.o.d"
+  "CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o"
+  "CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o.d"
   "extreamfs"
   "extreamfs.pdb"
 )
