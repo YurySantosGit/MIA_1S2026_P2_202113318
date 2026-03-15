@@ -204,10 +204,14 @@ bool DiskManagement::WriteMBR(const std::string& path, const MBR& mbr, std::stri
 
 static int bytesFromUnitFDisk(int size, char unit) {
     unit = (char)std::tolower((unsigned char)unit);
+
     if (unit == 'b') return size;
     if (unit == 'k') return size * 1024;
-    return size * 1024; // default KB para fdisk
+    if (unit == 'm') return size * 1024 * 1024;
+
+    return size * 1024;
 }
+
 
 static char normalizeType(char type) {
     type = (char)std::tolower((unsigned char)type);

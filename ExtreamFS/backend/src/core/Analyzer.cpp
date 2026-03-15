@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <regex>
 #include <vector>
+#include <set>
 
 static std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -73,6 +74,15 @@ void Analyzer::ExecuteLine(const std::string& line) {
 
     // ============ DISPATCH ============
     if (parsed.command == "mkdisk") {
+        std::set<std::string> validParams = {"size", "path", "unit", "fit"};
+
+        for (const auto& [key, value] : parsed.params) {
+            if (!validParams.count(key)) {
+                std::cout << "[ERROR] Parametro no valido para mkdisk: " << key << "\n";
+                return;
+            }
+        }
+
         if (!parsed.params.count("size") || !parsed.params.count("path")) {
             std::cout << "[ERROR] mkdisk requiere -size y -path\n";
             return;
@@ -87,8 +97,8 @@ void Analyzer::ExecuteLine(const std::string& line) {
         }
 
         std::string path = parsed.params["path"];
-        char unit = parsed.params.count("unit") ? parsed.params["unit"][0] : 'm';
-        char fit  = parsed.params.count("fit")  ? parsed.params["fit"][0]  : 'f';
+        char unit = parsed.params.count("unit") ? std::tolower(parsed.params["unit"][0]) : 'm';
+        char fit  = parsed.params.count("fit")  ? std::tolower(parsed.params["fit"][0])  : 'f';
 
         std::string msg;
         if (!DiskManagement::Mkdisk(size, path, unit, fit, msg)) {
@@ -98,6 +108,8 @@ void Analyzer::ExecuteLine(const std::string& line) {
         }
         return;
     }
+
+
 
     if (parsed.command == "rmdisk") {
         if (!parsed.params.count("path")) {
@@ -513,6 +525,65 @@ void Analyzer::ExecuteLine(const std::string& line) {
 
         if (name == "block") {
             if (!ReportManager::RepBlock(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "tree") {
+            if (!ReportManager::RepTree(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "file") {
+            if (!parsed.params.count("ruta")) {
+                std::cout << "[ERROR] rep file requiere -ruta\n";
+                return;
+            }
+
+            std::string ruta = parsed.params["ruta"];
+
+            if (!ReportManager::RepFile(id, path, ruta, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "ls") {
+            if (!parsed.params.count("ruta")) {
+                std::cout << "[ERROR] rep ls requiere -ruta\n";
+                return;
+            }
+
+            std::string ruta = parsed.params["ruta"];
+
+            if (!ReportManager::RepLs(id, path, ruta, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "bm_inode") {
+            if (!ReportManager::RepBmInode(id, path, msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (name == "bm_block") {
+            if (!ReportManager::RepBmBlock(id, path, msg)) {
                 std::cout << "[ERROR] " << msg << "\n";
             } else {
                 std::cout << "[OK] " << msg << "\n";

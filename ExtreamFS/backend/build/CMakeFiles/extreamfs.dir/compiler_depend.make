@@ -94,7 +94,9 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: /home/yurysantos/Escritorio/MI
   /usr/include/c++/13/bits/stl_iterator_base_types.h \
   /usr/include/c++/13/bits/stl_map.h \
   /usr/include/c++/13/bits/stl_multimap.h \
+  /usr/include/c++/13/bits/stl_multiset.h \
   /usr/include/c++/13/bits/stl_pair.h \
+  /usr/include/c++/13/bits/stl_set.h \
   /usr/include/c++/13/bits/stl_stack.h \
   /usr/include/c++/13/bits/stl_tempbuf.h \
   /usr/include/c++/13/bits/stl_tree.h \
@@ -146,6 +148,7 @@ CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o: /home/yurysantos/Escritorio/MI
   /usr/include/c++/13/pstl/glue_algorithm_defs.h \
   /usr/include/c++/13/pstl/pstl_config.h \
   /usr/include/c++/13/regex \
+  /usr/include/c++/13/set \
   /usr/include/c++/13/sstream \
   /usr/include/c++/13/stack \
   /usr/include/c++/13/stdexcept \
@@ -1373,6 +1376,7 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
   /usr/include/c++/13/bits/cpp_type_traits.h \
   /usr/include/c++/13/bits/cxxabi_forced.h \
   /usr/include/c++/13/bits/cxxabi_init_exception.h \
+  /usr/include/c++/13/bits/erase_if.h \
   /usr/include/c++/13/bits/exception.h \
   /usr/include/c++/13/bits/exception_defines.h \
   /usr/include/c++/13/bits/exception_ptr.h \
@@ -1400,6 +1404,7 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
   /usr/include/c++/13/bits/move.h \
   /usr/include/c++/13/bits/nested_exception.h \
   /usr/include/c++/13/bits/new_allocator.h \
+  /usr/include/c++/13/bits/node_handle.h \
   /usr/include/c++/13/bits/ostream.tcc \
   /usr/include/c++/13/bits/ostream_insert.h \
   /usr/include/c++/13/bits/parse_numbers.h \
@@ -1423,8 +1428,13 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
   /usr/include/c++/13/bits/stl_iterator.h \
   /usr/include/c++/13/bits/stl_iterator_base_funcs.h \
   /usr/include/c++/13/bits/stl_iterator_base_types.h \
+  /usr/include/c++/13/bits/stl_map.h \
+  /usr/include/c++/13/bits/stl_multimap.h \
+  /usr/include/c++/13/bits/stl_multiset.h \
   /usr/include/c++/13/bits/stl_pair.h \
+  /usr/include/c++/13/bits/stl_set.h \
   /usr/include/c++/13/bits/stl_tempbuf.h \
+  /usr/include/c++/13/bits/stl_tree.h \
   /usr/include/c++/13/bits/stl_uninitialized.h \
   /usr/include/c++/13/bits/stl_vector.h \
   /usr/include/c++/13/bits/streambuf.tcc \
@@ -1467,12 +1477,14 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
   /usr/include/c++/13/istream \
   /usr/include/c++/13/limits \
   /usr/include/c++/13/locale \
+  /usr/include/c++/13/map \
   /usr/include/c++/13/new \
   /usr/include/c++/13/ostream \
   /usr/include/c++/13/pstl/execution_defs.h \
   /usr/include/c++/13/pstl/glue_algorithm_defs.h \
   /usr/include/c++/13/pstl/pstl_config.h \
   /usr/include/c++/13/ratio \
+  /usr/include/c++/13/set \
   /usr/include/c++/13/sstream \
   /usr/include/c++/13/stdexcept \
   /usr/include/c++/13/streambuf \
@@ -1674,7 +1686,13 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
 
-/usr/include/c++/13/cctype:
+/usr/include/c++/13/numeric:
+
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h:
+
+/usr/include/x86_64-linux-gnu/sys/types.h:
+
+/usr/include/x86_64-linux-gnu/sys/single_threaded.h:
 
 /usr/include/c++/13/debug/assertions.h:
 
@@ -1698,6 +1716,8 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 
 /usr/include/c++/13/cstdint:
 
+/usr/include/c++/13/cctype:
+
 /usr/include/c++/13/bitset:
 
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/core/Analyzer.h:
@@ -1707,8 +1727,6 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/core/Analyzer.cpp:
 
 /usr/include/c++/13/type_traits:
-
-/usr/include/x86_64-linux-gnu/sys/single_threaded.h:
 
 /usr/include/c++/13/bits/vector.tcc:
 
@@ -1767,6 +1785,8 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 /usr/include/c++/13/bits/parse_numbers.h:
 
 /usr/include/c++/13/bits/std_abs.h:
+
+/usr/include/c++/13/bits/stl_multiset.h:
 
 /usr/include/c++/13/bits/postypes.h:
 
@@ -1863,10 +1883,6 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 /usr/include/c++/13/bits/utility.h:
 
 /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
-
-/usr/include/c++/13/ext/alloc_traits.h:
-
-/usr/include/c++/13/new:
 
 /usr/include/c++/13/bits/alloc_traits.h:
 
@@ -1996,9 +2012,15 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 
 /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/SessionManager.cpp:
 
+/usr/include/c++/13/bits/stl_set.h:
+
 /usr/include/c++/13/bits/ostream_insert.h:
 
 /usr/include/c++/13/bits/locale_facets_nonio.tcc:
+
+/usr/include/c++/13/ext/alloc_traits.h:
+
+/usr/include/c++/13/new:
 
 /usr/include/c++/13/ext/concurrence.h:
 
@@ -2033,6 +2055,8 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 /usr/include/c++/13/bits/stl_algobase.h:
 
 /usr/include/c++/13/regex:
+
+/usr/include/c++/13/set:
 
 /usr/include/c++/13/stdexcept:
 
@@ -2223,9 +2247,3 @@ CMakeFiles/extreamfs.dir/src/reports/ReportManager.cpp.o: /home/yurysantos/Escri
 /usr/include/x86_64-linux-gnu/gnu/stubs-64.h:
 
 /usr/include/x86_64-linux-gnu/sys/cdefs.h:
-
-/usr/include/x86_64-linux-gnu/sys/types.h:
-
-/usr/include/c++/13/numeric:
-
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h:
