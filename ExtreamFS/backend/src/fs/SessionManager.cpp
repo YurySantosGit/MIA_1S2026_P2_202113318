@@ -71,26 +71,26 @@ bool SessionManager::Login(const std::string& user,
         return false;
     }
 
-    // 3) Leer el primer bloque del archivo users.txt
-    int blockIndex = usersInode.i_block[0];
-    if (blockIndex < 0) {
-        outMsg = "users.txt no tiene bloques asignados.";
-        file.close();
-        return false;
-    }
+    // 3) Leer todos los bloques directos del archivo users.txt
+    std::string usersContent;
 
-    FileBlock usersBlock{};
-    file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
-    file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
-    if (!file) {
-        outMsg = "No se pudo leer el bloque de users.txt.";
-        file.close();
-        return false;
+    for (int i = 0; i < 15; i++) {
+        int blockIndex = usersInode.i_block[i];
+        if (blockIndex < 0) continue;
+
+        FileBlock usersBlock{};
+        file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
+        file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
+        if (!file) {
+            outMsg = "No se pudo leer uno de los bloques de users.txt.";
+            file.close();
+            return false;
+        }
+
+        usersContent += std::string(usersBlock.b_content, sizeof(usersBlock.b_content));
     }
 
     file.close();
-
-    std::string usersContent(usersBlock.b_content);
 
     // Estructura esperada:
     // 1,G,root

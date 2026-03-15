@@ -252,6 +252,32 @@ static std::vector<EBR> readLogicalPartitions(const std::string& diskPath, const
     return logicals;
 }
 
+static bool hasTxtExtension(const std::string& path) {
+    std::filesystem::path p(path);
+    std::string ext = p.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    return ext == ".txt";
+}
+
+static std::string bitmapToPlainTextRows(const std::vector<char>& bits, int perRow = 20) {
+    std::stringstream ss;
+
+    for (size_t i = 0; i < bits.size(); i++) {
+        ss << bits[i];
+        if ((i + 1) % perRow == 0) {
+            ss << "\n";
+        } else {
+            ss << " ";
+        }
+    }
+
+    if (bits.size() % perRow != 0) {
+        ss << "\n";
+    }
+
+    return ss.str();
+}
+
 bool ReportManager::RepSb(const std::string& id,
                           const std::string& outPath,
                           std::string& outMsg) {
@@ -1255,6 +1281,20 @@ bool ReportManager::RepBmInode(const std::string& id,
     std::filesystem::path output(outPath);
     std::filesystem::create_directories(output.parent_path());
 
+    if (hasTxtExtension(outPath)) {
+        std::ofstream txtFile(outPath);
+        if (!txtFile.is_open()) {
+            outMsg = "No se pudo crear el archivo TXT del reporte.";
+            return false;
+        }
+
+        txtFile << bitmapToPlainTextRows(bits, 20);
+        txtFile.close();
+
+        outMsg = "Reporte BM_INODE generado correctamente: " + outPath;
+        return true;
+    }
+
     std::filesystem::path dotPath = output;
     dotPath.replace_extension(".dot");
 
@@ -1332,6 +1372,20 @@ bool ReportManager::RepBmBlock(const std::string& id,
 
     std::filesystem::path output(outPath);
     std::filesystem::create_directories(output.parent_path());
+
+    if (hasTxtExtension(outPath)) {
+        std::ofstream txtFile(outPath);
+        if (!txtFile.is_open()) {
+            outMsg = "No se pudo crear el archivo TXT del reporte.";
+            return false;
+        }
+
+        txtFile << bitmapToPlainTextRows(bits, 20);
+        txtFile.close();
+
+        outMsg = "Reporte BM_BLOCK generado correctamente: " + outPath;
+        return true;
+    }
 
     std::filesystem::path dotPath = output;
     dotPath.replace_extension(".dot");
