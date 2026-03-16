@@ -1,0 +1,61 @@
+<div class="app-container">
+  <header class="header">
+    <div>
+      <h1>ExtreamFS</h1>
+      <p>Frontend para ejecución de comandos y visualización de reportes</p>
+    </div>
+    <div class="status-badge">Backend: {{ backendStatus }}</div>
+  </header>
+
+  <main class="main-grid">
+    <section class="panel commands-panel">
+      <h2>Entrada de comandos</h2>
+
+      <textarea
+        [(ngModel)]="commandInput"
+        placeholder="Escribe aquí los comandos, por ejemplo:
+mkdisk -size=10 -unit=M -path=/home/yury/Disco1.mia
+fdisk -size=100 -unit=K -path=/home/yury/Disco1.mia -name=Part1"
+      ></textarea>
+
+      <div class="file-section">
+        <label for="fileInput" class="file-label">Cargar script .smia</label>
+        <input
+          id="fileInput"
+          type="file"
+          accept=".smia,.txt"
+          (change)="onFileSelected($event)"
+        />
+        <span class="file-name" *ngIf="selectedFileName">
+          Archivo: {{ selectedFileName }}
+        </span>
+      </div>
+
+      <div class="button-group">
+        <button (click)="executeCommands()">Ejecutar</button>
+        <button class="secondary" (click)="clearAll()">Limpiar</button>
+      </div>
+    </section>
+
+    <section class="panel output-panel">
+      <h2>Salida / Consola</h2>
+      <pre>{{ outputText }}</pre>
+    </section>
+
+    <section class="panel reports-panel">
+      <h2>Reportes</h2>
+
+      <div *ngIf="reports.length === 0" class="empty-state">
+        No hay reportes generados todavía.
+      </div>
+
+      <div class="report-list" *ngIf="reports.length > 0">
+        <div class="report-card" *ngFor="let report of reports">
+          <h3>{{ report.name }}</h3>
+          <p>{{ report.path }}</p>
+          <button disabled>Ver reporte</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
