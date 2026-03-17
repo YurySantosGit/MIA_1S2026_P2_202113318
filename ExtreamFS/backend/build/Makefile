@@ -129,6 +129,30 @@ extreamfs/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/build
 .PHONY : extreamfs/fast
 
+src/api/HttpServer.o: src/api/HttpServer.cpp.o
+.PHONY : src/api/HttpServer.o
+
+# target to build an object file
+src/api/HttpServer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/api/HttpServer.cpp.o
+.PHONY : src/api/HttpServer.cpp.o
+
+src/api/HttpServer.i: src/api/HttpServer.cpp.i
+.PHONY : src/api/HttpServer.i
+
+# target to preprocess a source file
+src/api/HttpServer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/api/HttpServer.cpp.i
+.PHONY : src/api/HttpServer.cpp.i
+
+src/api/HttpServer.s: src/api/HttpServer.cpp.s
+.PHONY : src/api/HttpServer.s
+
+# target to generate assembly for a file
+src/api/HttpServer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extreamfs.dir/build.make CMakeFiles/extreamfs.dir/src/api/HttpServer.cpp.s
+.PHONY : src/api/HttpServer.cpp.s
+
 src/core/Analyzer.o: src/core/Analyzer.cpp.o
 .PHONY : src/core/Analyzer.o
 
@@ -306,6 +330,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... extreamfs"
+	@echo "... src/api/HttpServer.o"
+	@echo "... src/api/HttpServer.i"
+	@echo "... src/api/HttpServer.s"
 	@echo "... src/core/Analyzer.o"
 	@echo "... src/core/Analyzer.i"
 	@echo "... src/core/Analyzer.s"

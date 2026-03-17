@@ -13,6 +13,7 @@
 #include <regex>
 #include <vector>
 #include <set>
+#include <sstream>
 
 static std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -61,6 +62,46 @@ void Analyzer::RunInteractive() {
 
         ExecuteLine(cleaned);
     }
+}
+
+std::string Analyzer::ExecuteScript(const std::string& input) {
+    std::ostringstream capturedOutput;
+
+    // Guardamos el buffer actual de cout
+    std::streambuf* originalCoutBuffer = std::cout.rdbuf();
+
+    // Redirigimos cout al stringstream para capturar toda la salida
+    std::cout.rdbuf(capturedOutput.rdbuf());
+
+    std::istringstream scriptStream(input);
+    std::string line;
+
+    while (std::getline(scriptStream, line)) {
+        std::string cleaned = trim(line);
+
+        // Mostrar comentarios y líneas vacías como parte del resultado
+        if (cleaned.empty()) {
+            std::cout << "\n";
+            continue;
+        }
+
+        if (cleaned[0] == '#') {
+            std::cout << cleaned << "\n";
+            continue;
+        }
+
+        if (toLower(cleaned) == "exit") {
+            std::cout << "[INFO] Comando exit ignorado en modo script.\n";
+            continue;
+        }
+
+        ExecuteLine(cleaned);
+    }
+
+    // Restauramos cout
+    std::cout.rdbuf(originalCoutBuffer);
+
+    return capturedOutput.str();
 }
 
 void Analyzer::ExecuteLine(const std::string& line) {

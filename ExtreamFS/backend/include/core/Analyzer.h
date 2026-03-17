@@ -5,6 +5,7 @@
 class Analyzer {
 public:
     void RunInteractive();
+    std::string ExecuteScript(const std::string& input);
 
 private:
     struct ParsedLine {

@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/extreamfs.dir/src/api/HttpServer.cpp.o"
+  "CMakeFiles/extreamfs.dir/src/api/HttpServer.cpp.o.d"
   "CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o"
   "CMakeFiles/extreamfs.dir/src/core/Analyzer.cpp.o.d"
   "CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o"

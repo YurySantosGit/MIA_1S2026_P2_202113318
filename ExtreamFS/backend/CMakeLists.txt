@@ -20,6 +20,7 @@ set(SOURCES
     src/fs/FileSystemManager.cpp
     src/fs/SessionManager.cpp
     src/reports/ReportManager.cpp
+    src/api/HttpServer.cpp
 )
 
 # =========================
