@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include
+CXX_INCLUDES = -I/home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include
 
 CXX_FLAGS = -g -std=c++17 -Wall -Wextra -Wpedantic
 

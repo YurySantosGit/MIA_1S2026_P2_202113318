@@ -1,7 +1,7 @@
 CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o: \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/disk/DiskManagement.cpp \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/src/disk/DiskManagement.cpp \
  /usr/include/stdc-predef.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/DiskManagement.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/disk/DiskManagement.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -116,7 +116,7 @@ CMakeFiles/extreamfs.dir/src/disk/DiskManagement.cpp.o: \
  /usr/include/c++/13/bits/memory_resource.h /usr/include/c++/13/cstddef \
  /usr/include/c++/13/bits/uses_allocator.h \
  /usr/include/c++/13/bits/uses_allocator_args.h /usr/include/c++/13/tuple \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/Structs.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/disk/Structs.h \
  /usr/include/c++/13/cstdint \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \

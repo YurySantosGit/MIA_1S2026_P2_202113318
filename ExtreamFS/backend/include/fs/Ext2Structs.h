@@ -23,6 +23,18 @@ struct SuperBlock {
     int32_t s_block_start;
 };
 
+struct Information {
+    char  i_operation[10];
+    char  i_path[32];
+    char  i_content[64];
+    float i_date;
+};
+
+struct Journal {
+    int32_t     j_count;
+    Information j_content[50];
+};
+
 struct Inode {
     int32_t i_uid;
     int32_t i_gid;

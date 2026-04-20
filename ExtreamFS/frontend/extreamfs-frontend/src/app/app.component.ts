@@ -20,8 +20,6 @@ export class AppComponent implements OnInit {
 
   backendStatus: string = 'Verificando...';
 
-  reports: { name: string; path: string }[] = [];
-
   constructor(private backendService: BackendService) {}
 
   ngOnInit(): void {
@@ -66,19 +64,18 @@ export class AppComponent implements OnInit {
   }
 
   executeCommands(): void {
-    const contentToExecute = this.commandInput.trim() || this.selectedFileContent.trim();
+    const contentToExecute = this.commandInput.trim();
 
     if (!contentToExecute) {
-      this.outputText += `[ERROR] No hay comandos para ejecutar.\n`;
+      this.outputText += `[ERROR] No hay comandos para ejecutar en la entrada manual.\n`;
       return;
     }
 
-    this.outputText += `\n[INFO] Ejecutando comandos...\n`;
+    this.outputText += `\n[INFO] Ejecutando comandos manuales...\n`;
 
     this.backendService.executeCommands(contentToExecute).subscribe({
       next: (response: ExecuteResponse) => {
         this.outputText += `${response.output}\n`;
-        this.reports = response.reports || [];
       },
       error: () => {
         this.outputText += `[ERROR] No se pudo conectar con el backend.\n`;
@@ -86,11 +83,37 @@ export class AppComponent implements OnInit {
     });
   }
 
-  clearAll(): void {
+  executeLoadedFile(): void {
+    const contentToExecute = this.selectedFileContent.trim();
+
+    if (!contentToExecute) {
+      this.outputText += `[ERROR] No hay archivo cargado para ejecutar.\n`;
+      return;
+    }
+
+    this.outputText += `\n[INFO] Ejecutando archivo cargado...\n`;
+
+    this.backendService.executeCommands(contentToExecute).subscribe({
+      next: (response: ExecuteResponse) => {
+        this.outputText += `${response.output}\n`;
+      },
+      error: () => {
+        this.outputText += `[ERROR] No se pudo conectar con el backend.\n`;
+      }
+    });
+  }
+
+  clearCommandInput(): void {
     this.commandInput = '';
+  }
+
+  clearLoadedFile(): void {
     this.selectedFileName = '';
     this.selectedFileContent = '';
-    this.outputText = 'Consola limpiada.\n';
-    this.reports = [];
+
+    const input = document.getElementById('fileInput') as HTMLInputElement | null;
+    if (input) {
+      input.value = '';
+    }
   }
 }

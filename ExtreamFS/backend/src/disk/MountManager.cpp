@@ -1,10 +1,17 @@
 #include "disk/MountManager.h"
 #include <algorithm>
+#include <cctype>
 
 std::vector<MountedPartition> MountManager::mountedPartitions;
 
 static std::string extractDiskKey(const std::string& path) {
     return path;
+}
+
+static std::string normalizeId(std::string id) {
+    std::transform(id.begin(), id.end(), id.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    return id;
 }
 
 std::string MountManager::Mount(const std::string& path,
@@ -36,9 +43,9 @@ std::string MountManager::Mount(const std::string& path,
     char letter = 'A';
     auto itDisk = std::find(uniqueDisks.begin(), uniqueDisks.end(), diskKey);
     if (itDisk == uniqueDisks.end()) {
-        letter = (char)('A' + uniqueDisks.size());
+        letter = static_cast<char>('A' + uniqueDisks.size());
     } else {
-        letter = (char)('A' + std::distance(uniqueDisks.begin(), itDisk));
+        letter = static_cast<char>('A' + std::distance(uniqueDisks.begin(), itDisk));
     }
 
     // número de partición para ese disco
@@ -49,7 +56,7 @@ std::string MountManager::Mount(const std::string& path,
         }
     }
 
-    std::string id = carnetLastTwo + std::to_string(numberForDisk) + letter;
+    std::string id = normalizeId(carnetLastTwo + std::to_string(numberForDisk) + letter);
 
     MountedPartition mp;
     mp.id = id;
@@ -69,11 +76,38 @@ const std::vector<MountedPartition>& MountManager::GetMountedPartitions() {
 }
 
 bool MountManager::FindById(const std::string& id, MountedPartition& outPartition) {
+    std::string normalizedId = normalizeId(id);
+
     for (const auto& mp : mountedPartitions) {
-        if (mp.id == id) {
+        if (normalizeId(mp.id) == normalizedId) {
             outPartition = mp;
             return true;
         }
     }
     return false;
+}
+
+bool MountManager::Unmount(const std::string& id, std::string& outMsg) {
+    outMsg.clear();
+
+    std::string normalizedId = normalizeId(id);
+
+    auto it = std::find_if(mountedPartitions.begin(), mountedPartitions.end(),
+                           [&](const MountedPartition& mp) {
+                               return normalizeId(mp.id) == normalizedId;
+                           });
+
+    if (it == mountedPartitions.end()) {
+        outMsg = "No existe una particion montada con id: " + id;
+        return false;
+    }
+
+    std::string removedId = it->id;
+    std::string removedName = it->name;
+
+    mountedPartitions.erase(it);
+
+    outMsg = "Particion desmontada correctamente. id=" + removedId +
+             " | name=" + removedName;
+    return true;
 }

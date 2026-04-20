@@ -356,6 +356,71 @@ static int findExtendedIndex(const MBR& mbr) {
     return -1;
 }
 
+static bool zeroRegion(std::fstream& file, int start, int size) {
+    if (start < 0 || size <= 0) return true;
+
+    std::vector<char> zeros(1024, '\0');
+    file.seekp(start, std::ios::beg);
+
+    int remaining = size;
+    while (remaining > 0) {
+        int chunk = std::min(remaining, (int)zeros.size());
+        file.write(zeros.data(), chunk);
+        if (!file) return false;
+        remaining -= chunk;
+    }
+    return true;
+}
+
+static bool readEbrAt(std::fstream& file, int pos, EBR& ebr) {
+    file.clear();
+    file.seekg(pos, std::ios::beg);
+    file.read(reinterpret_cast<char*>(&ebr), sizeof(EBR));
+    return (bool)file;
+}
+
+static bool writeEbrAt(std::fstream& file, int pos, const EBR& ebr) {
+    file.clear();
+    file.seekp(pos, std::ios::beg);
+    file.write(reinterpret_cast<const char*>(&ebr), sizeof(EBR));
+    return (bool)file;
+}
+
+static int getNextPrimaryBoundary(const MBR& mbr, int currentSlot) {
+    int boundary = mbr.mbr_tamano;
+    int currentStart = mbr.mbr_partitions[currentSlot].part_start;
+
+    for (int i = 0; i < 4; i++) {
+        if (i == currentSlot) continue;
+
+        const Partition& p = mbr.mbr_partitions[i];
+        if (p.part_start != -1 && p.part_size > 0 && p.part_start > currentStart) {
+            boundary = std::min(boundary, p.part_start);
+        }
+    }
+    return boundary;
+}
+
+static int getMaxLogicalUsedEnd(std::fstream& file, const Partition& ext) {
+    int maxEnd = ext.part_start + (int)sizeof(EBR);
+    int pos = ext.part_start;
+    EBR ebr{};
+
+    while (pos != -1) {
+        if (!readEbrAt(file, pos, ebr)) break;
+
+        if (ebr.part_size > 0) {
+            int currentEnd = ebr.part_start + (int)sizeof(EBR) + ebr.part_size;
+            maxEnd = std::max(maxEnd, currentEnd);
+        }
+
+        pos = ebr.part_next;
+    }
+
+    file.clear();
+    return maxEnd;
+}
+
 bool DiskManagement::Fdisk(int size,
                            const std::string& path,
                            const std::string& name,
@@ -391,6 +456,303 @@ bool DiskManagement::Fdisk(int size,
     }
 
     return CreatePrimaryOrExtended(partBytes, path, name, type, fit, outMsg);
+}
+
+bool DiskManagement::DeletePartition(const std::string& path,
+                                     const std::string& name,
+                                     const std::string& mode,
+                                     std::string& outMsg) {
+    outMsg.clear();
+
+    if (path.empty()) {
+        outMsg = "Error: -path es obligatorio.";
+        return false;
+    }
+
+    if (name.empty()) {
+        outMsg = "Error: -name es obligatorio.";
+        return false;
+    }
+
+    std::string deleteMode = mode;
+    std::transform(deleteMode.begin(), deleteMode.end(), deleteMode.begin(),
+                   [](unsigned char c) { return (char)std::tolower(c); });
+
+    if (deleteMode != "fast" && deleteMode != "full") {
+        outMsg = "Error: -delete solo acepta fast o full.";
+        return false;
+    }
+
+    MBR mbr{};
+    if (!ReadMBR(path, mbr, outMsg)) {
+        return false;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        Partition& p = mbr.mbr_partitions[i];
+        if (p.part_start != -1 && p.part_size > 0 && std::string(p.part_name) == name) {
+            if (deleteMode == "full") {
+                std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+                if (!file.is_open()) {
+                    outMsg = "Error: no se pudo abrir el disco para eliminar la particion.";
+                    return false;
+                }
+
+                if (!zeroRegion(file, p.part_start, p.part_size)) {
+                    file.close();
+                    outMsg = "Error: no se pudo limpiar el espacio de la particion.";
+                    return false;
+                }
+                file.close();
+            }
+
+            Partition empty{};
+            empty.part_status = '0';
+            empty.part_type   = 'p';
+            empty.part_fit    = 'w';
+            empty.part_start  = -1;
+            empty.part_size   = 0;
+            std::memset(empty.part_name, 0, sizeof(empty.part_name));
+
+            p = empty;
+
+            if (!WriteMBR(path, mbr, outMsg)) {
+                return false;
+            }
+
+            outMsg = "Particion eliminada correctamente (" + deleteMode + "): " + name;
+            return true;
+        }
+    }
+
+    int extIndex = findExtendedIndex(mbr);
+    if (extIndex == -1) {
+        outMsg = "Error: no existe una particion con el nombre: " + name;
+        return false;
+    }
+
+    const Partition& ext = mbr.mbr_partitions[extIndex];
+
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "Error: no se pudo abrir el disco para eliminar la particion logica.";
+        return false;
+    }
+
+    int prevPos = -1;
+    EBR prev{};
+    int pos = ext.part_start;
+    EBR current{};
+
+    while (pos != -1) {
+        if (!readEbrAt(file, pos, current)) {
+            file.close();
+            outMsg = "Error: no se pudo leer la lista de EBR.";
+            return false;
+        }
+
+        if (current.part_size > 0 && std::string(current.part_name) == name) {
+            if (deleteMode == "full") {
+                int bytesToClean = (int)sizeof(EBR) + current.part_size;
+                if (!zeroRegion(file, pos, bytesToClean)) {
+                    file.close();
+                    outMsg = "Error: no se pudo limpiar el espacio de la particion logica.";
+                    return false;
+                }
+            }
+
+            if (prevPos == -1) {
+                EBR empty{};
+                empty.part_mount = '0';
+                empty.part_fit   = current.part_fit;
+                empty.part_start = pos;
+                empty.part_size  = 0;
+                empty.part_next  = current.part_next;
+                std::memset(empty.part_name, 0, sizeof(empty.part_name));
+
+                if (!writeEbrAt(file, pos, empty)) {
+                    file.close();
+                    outMsg = "Error: no se pudo actualizar el EBR inicial.";
+                    return false;
+                }
+            } else {
+                prev.part_next = current.part_next;
+                if (!writeEbrAt(file, prevPos, prev)) {
+                    file.close();
+                    outMsg = "Error: no se pudo actualizar el EBR anterior.";
+                    return false;
+                }
+
+                if (deleteMode == "fast") {
+                    EBR empty{};
+                    empty.part_mount = '0';
+                    empty.part_fit   = current.part_fit;
+                    empty.part_start = pos;
+                    empty.part_size  = 0;
+                    empty.part_next  = -1;
+                    std::memset(empty.part_name, 0, sizeof(empty.part_name));
+                    writeEbrAt(file, pos, empty);
+                }
+            }
+
+            file.close();
+            outMsg = "Particion logica eliminada correctamente (" + deleteMode + "): " + name;
+            return true;
+        }
+
+        prevPos = pos;
+        prev = current;
+        pos = current.part_next;
+    }
+
+    file.close();
+    outMsg = "Error: no existe una particion con el nombre: " + name;
+    return false;
+}
+
+bool DiskManagement::AddPartitionSpace(const std::string& path,
+                                       const std::string& name,
+                                       int add,
+                                       char unit,
+                                       std::string& outMsg) {
+    outMsg.clear();
+
+    if (path.empty()) {
+        outMsg = "Error: -path es obligatorio.";
+        return false;
+    }
+
+    if (name.empty()) {
+        outMsg = "Error: -name es obligatorio.";
+        return false;
+    }
+
+    if (add == 0) {
+        outMsg = "Error: -add no puede ser 0.";
+        return false;
+    }
+
+    int addBytes = bytesFromUnitFDisk(add, unit);
+
+    MBR mbr{};
+    if (!ReadMBR(path, mbr, outMsg)) {
+        return false;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        Partition& p = mbr.mbr_partitions[i];
+        if (p.part_start != -1 && p.part_size > 0 && std::string(p.part_name) == name) {
+            int newSize = p.part_size + addBytes;
+
+            if (newSize <= 0) {
+                outMsg = "Error: la particion no puede quedar con tamano <= 0.";
+                return false;
+            }
+
+            if (addBytes > 0) {
+                int boundary = getNextPrimaryBoundary(mbr, i);
+                int available = boundary - (p.part_start + p.part_size);
+
+                if (addBytes > available) {
+                    outMsg = "Error: no hay espacio contiguo suficiente para ampliar la particion.";
+                    return false;
+                }
+            } else {
+                if (p.part_type == 'e') {
+                    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+                    if (!file.is_open()) {
+                        outMsg = "Error: no se pudo abrir el disco para validar la particion extendida.";
+                        return false;
+                    }
+
+                    int minEnd = getMaxLogicalUsedEnd(file, p);
+                    file.close();
+
+                    if (p.part_start + newSize < minEnd) {
+                        outMsg = "Error: no se puede reducir la extendida porque contiene particiones logicas.";
+                        return false;
+                    }
+                }
+            }
+
+            p.part_size = newSize;
+
+            if (!WriteMBR(path, mbr, outMsg)) {
+                return false;
+            }
+
+            outMsg = "Espacio ajustado correctamente en particion " + name +
+                     " | nuevo size=" + std::to_string(newSize) + " bytes";
+            return true;
+        }
+    }
+
+    int extIndex = findExtendedIndex(mbr);
+    if (extIndex == -1) {
+        outMsg = "Error: no existe una particion con el nombre: " + name;
+        return false;
+    }
+
+    const Partition& ext = mbr.mbr_partitions[extIndex];
+    int extEnd = ext.part_start + ext.part_size;
+
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "Error: no se pudo abrir el disco para ajustar la particion logica.";
+        return false;
+    }
+
+    int pos = ext.part_start;
+    EBR ebr{};
+
+    while (pos != -1) {
+        if (!readEbrAt(file, pos, ebr)) {
+            file.close();
+            outMsg = "Error: no se pudo leer la lista de EBR.";
+            return false;
+        }
+
+        if (ebr.part_size > 0 && std::string(ebr.part_name) == name) {
+            int newSize = ebr.part_size + addBytes;
+
+            if (newSize <= 0) {
+                file.close();
+                outMsg = "Error: la particion logica no puede quedar con tamano <= 0.";
+                return false;
+            }
+
+            if (addBytes > 0) {
+                int boundary = (ebr.part_next != -1) ? ebr.part_next : extEnd;
+                int currentEnd = ebr.part_start + (int)sizeof(EBR) + ebr.part_size;
+                int available = boundary - currentEnd;
+
+                if (addBytes > available) {
+                    file.close();
+                    outMsg = "Error: no hay espacio contiguo suficiente para ampliar la particion logica.";
+                    return false;
+                }
+            }
+
+            ebr.part_size = newSize;
+
+            if (!writeEbrAt(file, pos, ebr)) {
+                file.close();
+                outMsg = "Error: no se pudo actualizar el EBR de la particion logica.";
+                return false;
+            }
+
+            file.close();
+            outMsg = "Espacio ajustado correctamente en particion logica " + name +
+                     " | nuevo size=" + std::to_string(newSize) + " bytes";
+            return true;
+        }
+
+        pos = ebr.part_next;
+    }
+
+    file.close();
+    outMsg = "Error: no existe una particion con el nombre: " + name;
+    return false;
 }
 
 bool DiskManagement::CreatePrimaryOrExtended(int sizeBytes,

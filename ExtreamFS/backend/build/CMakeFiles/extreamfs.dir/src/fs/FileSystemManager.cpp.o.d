@@ -1,7 +1,7 @@
 CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/src/fs/FileSystemManager.cpp \
  /usr/include/stdc-predef.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -159,13 +159,13 @@ CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/Ext2Structs.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/fs/Ext2Structs.h \
  /usr/include/c++/13/cstdint \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/disk/MountManager.h \
- /home/yurysantos/Escritorio/MIA_1S2026_P1_202113318/ExtreamFS/backend/include/fs/SessionManager.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/disk/MountManager.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/fs/SessionManager.h \
  /usr/include/c++/13/sstream /usr/include/c++/13/bits/sstream.tcc \
  /usr/include/c++/13/cstring /usr/include/string.h /usr/include/strings.h \
  /usr/include/c++/13/ctime /usr/include/c++/13/cmath /usr/include/math.h \
@@ -197,4 +197,17 @@ CMakeFiles/extreamfs.dir/src/fs/FileSystemManager.cpp.o: \
  /usr/include/c++/13/bits/uniform_int_dist.h \
  /usr/include/c++/13/bits/stl_tempbuf.h \
  /usr/include/c++/13/pstl/glue_algorithm_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h
+ /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/map \
+ /usr/include/c++/13/bits/stl_tree.h \
+ /usr/include/c++/13/ext/aligned_buffer.h \
+ /usr/include/c++/13/bits/node_handle.h \
+ /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h \
+ /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/functional \
+ /usr/include/c++/13/bits/std_function.h \
+ /usr/include/c++/13/unordered_map \
+ /usr/include/c++/13/bits/unordered_map.h \
+ /usr/include/c++/13/bits/hashtable.h \
+ /usr/include/c++/13/bits/hashtable_policy.h \
+ /usr/include/c++/13/bits/enable_special_members.h \
+ /usr/include/c++/13/array /usr/include/c++/13/compare

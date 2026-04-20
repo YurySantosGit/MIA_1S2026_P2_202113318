@@ -7,19 +7,23 @@
     <div class="status-badge">Backend: {{ backendStatus }}</div>
   </header>
 
-  <main class="main-grid">
+  <main class="main-column">
     <section class="panel commands-panel">
       <h2>Entrada de comandos</h2>
 
-      <textarea
-        [(ngModel)]="commandInput"
-        placeholder="Escribe aquí los comandos, por ejemplo:
-mkdisk -size=10 -unit=M -path=/home/yury/Disco1.mia
-fdisk -size=100 -unit=K -path=/home/yury/Disco1.mia -name=Part1"
-      ></textarea>
+      <textarea [(ngModel)]="commandInput"></textarea>
+
+      <div class="button-group">
+        <button (click)="executeCommands()">Ejecutar</button>
+        <button class="secondary" (click)="clearCommandInput()">Limpiar</button>
+      </div>
+    </section>
+
+    <section class="panel file-panel">
+      <h2>Archivo .smia cargado</h2>
 
       <div class="file-section">
-        <label for="fileInput" class="file-label">Cargar script .smia</label>
+        <label for="fileInput" class="file-label">Seleccionar archivo</label>
         <input
           id="fileInput"
           type="file"
@@ -31,31 +35,21 @@ fdisk -size=100 -unit=K -path=/home/yury/Disco1.mia -name=Part1"
         </span>
       </div>
 
+      <textarea
+        class="readonly-textarea"
+        [value]="selectedFileContent"
+        readonly
+      ></textarea>
+
       <div class="button-group">
-        <button (click)="executeCommands()">Ejecutar</button>
-        <button class="secondary" (click)="clearAll()">Limpiar</button>
+        <button (click)="executeLoadedFile()">Ejecutar archivo</button>
+        <button class="secondary" (click)="clearLoadedFile()">Limpiar archivo</button>
       </div>
     </section>
 
     <section class="panel output-panel">
       <h2>Salida / Consola</h2>
       <pre>{{ outputText }}</pre>
-    </section>
-
-    <section class="panel reports-panel">
-      <h2>Reportes</h2>
-
-      <div *ngIf="reports.length === 0" class="empty-state">
-        No hay reportes generados todavía.
-      </div>
-
-      <div class="report-list" *ngIf="reports.length > 0">
-        <div class="report-card" *ngFor="let report of reports">
-          <h3>{{ report.name }}</h3>
-          <p>{{ report.path }}</p>
-          <button disabled>Ver reporte</button>
-        </div>
-      </div>
     </section>
   </main>
 </div>

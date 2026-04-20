@@ -21,6 +21,7 @@ public:
 
     static const std::vector<MountedPartition>& GetMountedPartitions();
     static bool FindById(const std::string& id, MountedPartition& outPartition);
+    static bool Unmount(const std::string& id, std::string& outMsg);
 
 private:
     static std::vector<MountedPartition> mountedPartitions;

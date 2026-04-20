@@ -22,6 +22,17 @@ public:
                                     const std::string& name,
                                     Partition& outPartition,
                                     std::string& outMsg);
+    
+    static bool DeletePartition(const std::string& path,
+                            const std::string& name,
+                            const std::string& mode,
+                            std::string& outMsg);
+
+    static bool AddPartitionSpace(const std::string& path,
+                              const std::string& name,
+                              int add,
+                              char unit,
+                              std::string& outMsg);
 
 private:
     static bool CreatePrimaryOrExtended(int sizeBytes,

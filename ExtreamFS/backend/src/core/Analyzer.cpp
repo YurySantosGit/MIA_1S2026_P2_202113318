@@ -170,30 +170,77 @@ void Analyzer::ExecuteLine(const std::string& line) {
     }
 
     if (parsed.command == "fdisk") {
-        if (!parsed.params.count("size") ||
-            !parsed.params.count("path") ||
-            !parsed.params.count("name")) {
-            std::cout << "[ERROR] fdisk requiere -size, -path y -name\n";
+        if (!parsed.params.count("path") || !parsed.params.count("name")) {
+            std::cout << "[ERROR] fdisk requiere -path y -name\n";
+            return;
+        }
+
+        std::string msg;
+
+        if (parsed.params.count("delete")) {
+            std::string mode = parsed.params["delete"];
+
+            if (!DiskManagement::DeletePartition(parsed.params["path"],
+                                                parsed.params["name"],
+                                                mode,
+                                                msg)) {
+                std::cout << "[ERROR] " << msg << "\n";
+            } else {
+                std::cout << "[OK] " << msg << "\n";
+            }
+            return;
+        }
+
+        if (parsed.params.count("add")) {
+            try {
+                int add = std::stoi(parsed.params["add"]);
+                char unit = 'k';
+                if (parsed.params.count("unit") && !parsed.params["unit"].empty()) {
+                    unit = parsed.params["unit"][0];
+                }
+
+                if (!DiskManagement::AddPartitionSpace(parsed.params["path"],
+                                                    parsed.params["name"],
+                                                    add,
+                                                    unit,
+                                                    msg)) {
+                    std::cout << "[ERROR] " << msg << "\n";
+                } else {
+                    std::cout << "[OK] " << msg << "\n";
+                }
+            } catch (...) {
+                std::cout << "[ERROR] fdisk -add debe ser un entero valido\n";
+            }
+            return;
+        }
+
+        if (!parsed.params.count("size")) {
+            std::cout << "[ERROR] fdisk requiere -size cuando no se usa -delete ni -add\n";
             return;
         }
 
         int size = 0;
-        try {
-            size = std::stoi(parsed.params["size"]);
-        } catch (...) {
-            std::cout << "[ERROR] -size debe ser un entero valido\n";
+        try { size = std::stoi(parsed.params["size"]); }
+        catch (...) {
+            std::cout << "[ERROR] fdisk -size invalido\n";
             return;
         }
 
-        std::string path = parsed.params["path"];
-        std::string name = parsed.params["name"];
+        char unit = 'k';
+        char type = 'p';
+        char fit  = 'w';
 
-        char unit = parsed.params.count("unit") ? parsed.params["unit"][0] : 'k';
-        char type = parsed.params.count("type") ? parsed.params["type"][0] : 'p';
-        char fit  = parsed.params.count("fit")  ? parsed.params["fit"][0]  : 'w';
+        if (parsed.params.count("unit") && !parsed.params["unit"].empty())
+            unit = parsed.params["unit"][0];
+        if (parsed.params.count("type") && !parsed.params["type"].empty())
+            type = parsed.params["type"][0];
+        if (parsed.params.count("fit") && !parsed.params["fit"].empty())
+            fit = parsed.params["fit"][0];
 
-        std::string msg;
-        if (!DiskManagement::Fdisk(size, path, name, unit, type, fit, msg)) {
+        if (!DiskManagement::Fdisk(size,
+                                parsed.params["path"],
+                                parsed.params["name"],
+                                unit, type, fit, msg)) {
             std::cout << "[ERROR] " << msg << "\n";
         } else {
             std::cout << "[OK] " << msg << "\n";
@@ -236,6 +283,36 @@ void Analyzer::ExecuteLine(const std::string& line) {
         return;
     }
 
+    if (parsed.command == "unmount") {
+        if (!parsed.params.count("id")) {
+            std::cout << "[ERROR] unmount requiere -id\n";
+            return;
+        }
+
+        std::string id = parsed.params["id"];
+        std::string sessionId = SessionManager::currentSession.partitionId;
+
+        std::transform(id.begin(), id.end(), id.begin(),
+                       [](unsigned char c){ return std::toupper(c); });
+
+        std::transform(sessionId.begin(), sessionId.end(), sessionId.begin(),
+                       [](unsigned char c){ return std::toupper(c); });
+
+        if (SessionManager::currentSession.active && sessionId == id) {
+            std::cout << "[ERROR] Debe cerrar sesion antes de desmontar la particion: "
+                      << id << "\n";
+            return;
+        }
+
+        std::string msg;
+        if (!MountManager::Unmount(id, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
     if (parsed.command == "mounted") {
         const auto& mounted = MountManager::GetMountedPartitions();
 
@@ -262,10 +339,46 @@ void Analyzer::ExecuteLine(const std::string& line) {
             return;
         }
 
+        std::string id   = parsed.params["id"];
+        std::string type = parsed.params.count("type") ? parsed.params["type"] : "full";
+        std::string fs   = parsed.params.count("fs")   ? parsed.params["fs"]   : "2fs";
+        std::string msg;
+
+        if (!FileSystemManager::Mkfs(id, type, fs, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "loss") {
+        if (!parsed.params.count("id")) {
+            std::cout << "[ERROR] loss requiere -id\n";
+            return;
+        }
+
         std::string id = parsed.params["id"];
         std::string msg;
 
-        if (!FileSystemManager::Mkfs(id, msg)) {
+        if (!FileSystemManager::Loss(id, msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "recovery") {
+        if (!parsed.params.count("id")) {
+            std::cout << "[ERROR] recovery requiere -id\n";
+            return;
+        }
+
+        std::string id = parsed.params["id"];
+        std::string msg;
+
+        if (!FileSystemManager::Recovery(id, msg)) {
             std::cout << "[ERROR] " << msg << "\n";
         } else {
             std::cout << "[OK] " << msg << "\n";
@@ -475,6 +588,166 @@ void Analyzer::ExecuteLine(const std::string& line) {
         return;
     }
 
+    if (parsed.command == "remove") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] remove requiere -path\n";
+            return;
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Remove(parsed.params["path"], msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "edit") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] edit requiere -path\n";
+            return;
+        }
+
+        if (!parsed.params.count("contenido")) {
+            std::cout << "[ERROR] edit requiere -contenido\n";
+            return;
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Edit(parsed.params["path"], parsed.params["contenido"], msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "rename") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] rename requiere -path\n";
+            return;
+        }
+
+        if (!parsed.params.count("name")) {
+            std::cout << "[ERROR] rename requiere -name\n";
+            return;
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Rename(parsed.params["path"], parsed.params["name"], msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "copy") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] copy requiere -path\n";
+            return;
+        }
+        if (!parsed.params.count("destino")) {
+            std::cout << "[ERROR] copy requiere -destino\n";
+            return;
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Copy(parsed.params["path"], parsed.params["destino"], msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "move") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] move requiere -path\n";
+            return;
+        }
+        if (!parsed.params.count("destino")) {
+            std::cout << "[ERROR] move requiere -destino\n";
+            return;
+        }
+
+        std::string msg;
+        if (!FileSystemManager::Move(parsed.params["path"], parsed.params["destino"], msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "find") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] find requiere -path\n";
+            return;
+        }
+        if (!parsed.params.count("name")) {
+            std::cout << "[ERROR] find requiere -name\n";
+            return;
+        }
+
+        std::string outMsg;
+        if (!FileSystemManager::Find(parsed.params["path"], parsed.params["name"], outMsg)) {
+            std::cout << "[ERROR] " << outMsg << "\n";
+        } else {
+            std::cout << outMsg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "chown") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] chown requiere -path\n";
+            return;
+        }
+        if (!parsed.params.count("usuario")) {
+            std::cout << "[ERROR] chown requiere -usuario\n";
+            return;
+        }
+
+        std::string msg;
+        bool recursive = parsed.params.count("r") > 0;
+
+        if (!FileSystemManager::Chown(parsed.params["path"],
+                                    parsed.params["usuario"],
+                                    recursive,
+                                    msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "chmod") {
+        if (!parsed.params.count("path")) {
+            std::cout << "[ERROR] chmod requiere -path\n";
+            return;
+        }
+        if (!parsed.params.count("ugo")) {
+            std::cout << "[ERROR] chmod requiere -ugo\n";
+            return;
+        }
+
+        bool recursive = parsed.params.count("r") > 0;
+        std::string msg;
+
+        if (!FileSystemManager::Chmod(parsed.params["path"],
+                                    parsed.params["ugo"],
+                                    recursive,
+                                    msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << "[OK] " << msg << "\n";
+        }
+        return;
+    }
+
     if (parsed.command == "cat") {
         std::vector<std::pair<int, std::string>> orderedFiles;
 
@@ -511,6 +784,24 @@ void Analyzer::ExecuteLine(const std::string& line) {
             std::cout << "[ERROR] " << msg << "\n";
         } else {
             std::cout << msg << "\n";
+        }
+        return;
+    }
+
+    if (parsed.command == "journaling") {
+        if (!parsed.params.count("id")) {
+            std::cout << "[ERROR] journaling requiere -id\n";
+            return;
+        }
+
+        std::string msg;
+        if (!FileSystemManager::ShowJournaling(parsed.params["id"], msg)) {
+            std::cout << "[ERROR] " << msg << "\n";
+        } else {
+            std::cout << msg;
+            if (!msg.empty() && msg.back() != '\n') {
+                std::cout << "\n";
+            }
         }
         return;
     }
