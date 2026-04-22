@@ -93,8 +93,6 @@ static bool FsCanWrite(const Inode& inode,
     return (FsEffectivePerm(inode, currentUser, isRoot) & 2) != 0;
 }
 
-
-
 static bool ChownCmdReadInode(std::fstream& file,
                               const SuperBlock& sb,
                               int inodeIndex,
@@ -2325,7 +2323,10 @@ bool FileSystemManager::RemoveEntryFromFolder(std::fstream& file,
 
 
 
-bool FileSystemManager::Mkdir(const std::string& path, bool recursiveP, std::string& outMsg) {
+bool FileSystemManager::Mkdir(const std::string& path,
+                              bool recursiveP,
+                              std::string& outMsg,
+                              bool writeJournal) {
     outMsg.clear();
 
     if (!SessionManager::currentSession.active) {
@@ -2482,12 +2483,14 @@ bool FileSystemManager::Mkdir(const std::string& path, bool recursiveP, std::str
         currentInode = newFolderInode;
     }
 
-    std::string journalError;
-    if (!AppendJournalEntry(file, mp.start, sb, "mkdir", path,
-                            recursiveP ? "p=1" : "p=0", journalError)) {
-        file.close();
-        outMsg = journalError;
-        return false;
+    if (writeJournal) {
+        std::string journalError;
+        if (!AppendJournalEntry(file, mp.start, sb, "mkdir", path,
+                                recursiveP ? "p=1" : "p=0", journalError)) {
+            file.close();
+            outMsg = journalError;
+            return false;
+        }
     }
 
     file.close();
@@ -2500,7 +2503,8 @@ bool FileSystemManager::Mkfile(const std::string& path,
                                int size,
                                const std::string& contPath,
                                bool recursive,
-                               std::string& outMsg) {
+                               std::string& outMsg,
+                               bool writeJournal) {
     outMsg.clear();
 
     if (!SessionManager::currentSession.active) {
@@ -2778,15 +2782,17 @@ bool FileSystemManager::Mkfile(const std::string& path,
         ? ("size=" + std::to_string(size))
         : ("cont=" + contPath);
 
-    std::string journalError;
-    if (!AppendJournalEntry(file, mp.start, sb, "mkfile", path,
-                            "size=" + std::to_string(size) +
-                            ",cont=" + contPath +
-                            ",p=" + std::string(recursive ? "1" : "0"),
-                            journalError)) {
-        file.close();
-        outMsg = journalError;
-        return false;
+    if (writeJournal) {
+        std::string journalError;
+        if (!AppendJournalEntry(file, mp.start, sb, "mkfile", path,
+                                "size=" + std::to_string(size) +
+                                ",cont=" + contPath +
+                                ",p=" + std::string(recursive ? "1" : "0"),
+                                journalError)) {
+            file.close();
+            outMsg = journalError;
+            return false;
+        }
     }
 
     file.close();
@@ -3034,7 +3040,16 @@ static void writeZerosFS(std::fstream& file, int start, int size) {
     }
 }
 
-bool FileSystemManager::Remove(const std::string& path, std::string& outMsg) {
+
+
+
+
+
+
+
+bool FileSystemManager::Remove(const std::string& path,
+                               std::string& outMsg,
+                               bool registrarJournal) {
     outMsg.clear();
 
     if (!SessionManager::currentSession.active) {
@@ -3086,7 +3101,7 @@ bool FileSystemManager::Remove(const std::string& path, std::string& outMsg) {
         return false;
     }
 
-bool isRoot = (SessionManager::currentSession.user == "root");
+    bool isRoot = (SessionManager::currentSession.user == "root");
 
     size_t lastSlash = path.find_last_of('/');
     if (lastSlash == std::string::npos) {
@@ -3195,8 +3210,10 @@ bool isRoot = (SessionManager::currentSession.user == "root");
         return false;
     }
 
-    std::string journalError;
-    AppendJournalEntry(file, mp.start, sb, "remove", path, "", journalError);
+    if (registrarJournal) {
+        std::string journalError;
+        AppendJournalEntry(file, mp.start, sb, "remove", path, "-", journalError);
+    }
 
     file.close();
     outMsg = "Ruta eliminada correctamente: " + path;
@@ -3650,11 +3667,12 @@ bool FileSystemManager::Rename(const std::string& path,
     return true;
 
     
-    }
+}
 
 bool FileSystemManager::Copy(const std::string& path,
                              const std::string& destino,
-                             std::string& outMsg) {
+                             std::string& outMsg,
+                             bool writeJournal) {
     outMsg.clear();
 
     if (!SessionManager::currentSession.active) {
@@ -3718,72 +3736,127 @@ bool FileSystemManager::Copy(const std::string& path,
         return false;
     }
 
+    ChownCmdUserInfo currentUser;
+    if (!ChownCmdGetUserInfo(file, sb, SessionManager::currentSession.user, currentUser) ||
+        !currentUser.active) {
+        outMsg = "No se pudo obtener la informacion del usuario actual.";
+        file.close();
+        return false;
+    }
+
+    bool isRoot = (SessionManager::currentSession.user == "root");
+
+    auto readInodeByIndex = [&](int inodeIndex, Inode& inode, const std::string& errMsg) -> bool {
+        file.seekg(sb.s_inode_start + inodeIndex * (int)sizeof(Inode));
+        file.read(reinterpret_cast<char*>(&inode), sizeof(Inode));
+        if (!file) {
+            outMsg = errMsg;
+            return false;
+        }
+        return true;
+    };
+
+    auto splitCleanPath = [&](const std::string& absPath) -> std::vector<std::string> {
+        std::vector<std::string> parts = splitFS(absPath, '/');
+        std::vector<std::string> clean;
+        for (const auto& p : parts) {
+            std::string t = trimFS(p);
+            if (!t.empty()) clean.push_back(t);
+        }
+        return clean;
+    };
+
+    auto resolveExistingPathWithPerms =
+        [&](const std::string& absPath,
+            bool requireReadOnFinal,
+            bool requireWriteOnFinal,
+            int& outInodeIndex,
+            Inode& outInode,
+            const std::string& roleName) -> bool {
+
+        outInodeIndex = 0;
+        if (!readInodeByIndex(0, outInode, "No se pudo leer el inodo raiz.")) {
+            return false;
+        }
+
+        if (absPath == "/") {
+            if (requireReadOnFinal && !FsCanRead(outInode, currentUser, isRoot)) {
+                outMsg = "Permiso denegado para leer la ruta " + roleName + ": /";
+                return false;
+            }
+            if (requireWriteOnFinal && !FsCanWrite(outInode, currentUser, isRoot)) {
+                outMsg = "Permiso denegado para escribir en la ruta " + roleName + ": /";
+                return false;
+            }
+            return true;
+        }
+
+        std::vector<std::string> cleanParts = splitCleanPath(absPath);
+        std::string builtPath;
+
+        for (size_t i = 0; i < cleanParts.size(); ++i) {
+            const std::string& part = cleanParts[i];
+            bool isLast = (i + 1 == cleanParts.size());
+
+            int nextInodeIndex = FindEntryInFolder(file, sb, outInode, part);
+            if (nextInodeIndex == -1) {
+                outMsg = "No existe la ruta " + roleName + ": " + absPath;
+                return false;
+            }
+
+            Inode nextInode{};
+            if (!readInodeByIndex(nextInodeIndex, nextInode,
+                                  "No se pudo leer un inodo de la ruta " + roleName + ": " + absPath)) {
+                return false;
+            }
+
+            builtPath += "/" + part;
+
+            if (!isLast) {
+                if (nextInode.i_type != '0') {
+                    outMsg = "Una ruta intermedia no es carpeta: " + builtPath;
+                    return false;
+                }
+
+                if (!FsCanRead(nextInode, currentUser, isRoot)) {
+                    outMsg = "Permiso denegado para atravesar carpeta " + roleName + ": " + builtPath;
+                    return false;
+                }
+            } else {
+                if (requireReadOnFinal && !FsCanRead(nextInode, currentUser, isRoot)) {
+                    outMsg = "Permiso denegado para leer la ruta " + roleName + ": " + absPath;
+                    return false;
+                }
+
+                if (requireWriteOnFinal && !FsCanWrite(nextInode, currentUser, isRoot)) {
+                    outMsg = "Permiso denegado para escribir en la ruta " + roleName + ": " + absPath;
+                    return false;
+                }
+            }
+
+            outInodeIndex = nextInodeIndex;
+            outInode = nextInode;
+        }
+
+        return true;
+    };
+
     auto readEntryName = [](const char rawName[12]) -> std::string {
         size_t len = 0;
         while (len < 12 && rawName[len] != '\0') len++;
         return std::string(rawName, len);
     };
 
-    auto resolvePathToInode = [&](const std::string& absolutePath,
-                                  int& outInodeIndex,
-                                  Inode& outInode,
-                                  std::string& errMsg) -> bool {
-        errMsg.clear();
-
-        outInodeIndex = 0;
-        file.clear();
-        file.seekg(sb.s_inode_start + outInodeIndex * (int)sizeof(Inode));
-        file.read(reinterpret_cast<char*>(&outInode), sizeof(Inode));
-        if (!file) {
-            errMsg = "No se pudo leer el inodo raiz.";
-            return false;
-        }
-
-        if (absolutePath == "/") {
-            return true;
-        }
-
-        std::vector<std::string> parts = splitFS(absolutePath, '/');
-        std::vector<std::string> cleanParts;
-        for (const auto& p : parts) {
-            std::string t = trimFS(p);
-            if (!t.empty()) cleanParts.push_back(t);
-        }
-
-        for (const auto& name : cleanParts) {
-            int nextInode = FindEntryInFolder(file, sb, outInode, name);
-            if (nextInode == -1) {
-                errMsg = "No existe la ruta: " + absolutePath;
-                return false;
-            }
-
-            outInodeIndex = nextInode;
-            file.clear();
-            file.seekg(sb.s_inode_start + outInodeIndex * (int)sizeof(Inode));
-            file.read(reinterpret_cast<char*>(&outInode), sizeof(Inode));
-            if (!file) {
-                errMsg = "No se pudo leer un inodo al resolver la ruta: " + absolutePath;
-                return false;
-            }
-        }
-
-        return true;
-    };
-
     int srcInodeIndex = -1;
     Inode srcInode{};
-    std::string errMsg;
-
-    if (!resolvePathToInode(srcPath, srcInodeIndex, srcInode, errMsg)) {
-        outMsg = errMsg;
+    if (!resolveExistingPathWithPerms(srcPath, true, false, srcInodeIndex, srcInode, "origen")) {
         file.close();
         return false;
     }
 
     int dstInodeIndex = -1;
     Inode dstInode{};
-    if (!resolvePathToInode(dstPath, dstInodeIndex, dstInode, errMsg)) {
-        outMsg = errMsg;
+    if (!resolveExistingPathWithPerms(dstPath, true, true, dstInodeIndex, dstInode, "destino")) {
         file.close();
         return false;
     }
@@ -3815,9 +3888,15 @@ bool FileSystemManager::Copy(const std::string& path,
 
     auto buildCopyTree = [&](auto&& self,
                              const Inode& currentInode,
+                             const std::string& currentPath,
                              const std::string& currentName,
                              CopyNode& outNode,
                              std::string& buildErr) -> bool {
+        if (!FsCanRead(currentInode, currentUser, isRoot)) {
+            buildErr = "Permiso denegado para leer la ruta origen: " + currentPath;
+            return false;
+        }
+
         outNode.name = currentName;
         outNode.isDirectory = (currentInode.i_type == '0');
         outNode.content.clear();
@@ -3861,8 +3940,12 @@ bool FileSystemManager::Copy(const std::string& path,
                     return false;
                 }
 
+                std::string childPath = (currentPath == "/")
+                    ? "/" + childName
+                    : currentPath + "/" + childName;
+
                 CopyNode childNode;
-                if (!self(self, childInode, childName, childNode, buildErr)) {
+                if (!self(self, childInode, childPath, childName, childNode, buildErr)) {
                     return false;
                 }
 
@@ -3873,8 +3956,9 @@ bool FileSystemManager::Copy(const std::string& path,
         return true;
     };
 
+    std::string errMsg;
     CopyNode sourceTree;
-    if (!buildCopyTree(buildCopyTree, srcInode, sourceName, sourceTree, errMsg)) {
+    if (!buildCopyTree(buildCopyTree, srcInode, srcPath, sourceName, sourceTree, errMsg)) {
         outMsg = errMsg;
         file.close();
         return false;
@@ -3897,7 +3981,7 @@ bool FileSystemManager::Copy(const std::string& path,
 
         if (node.isDirectory) {
             std::string mkdirMsg;
-            if (!FileSystemManager::Mkdir(newPath, false, mkdirMsg)) {
+            if (!FileSystemManager::Mkdir(newPath, false, mkdirMsg, false)) {
                 createErr = mkdirMsg;
                 return false;
             }
@@ -3912,7 +3996,7 @@ bool FileSystemManager::Copy(const std::string& path,
 
         if (node.content.empty()) {
             std::string mkfileMsg;
-            if (!FileSystemManager::Mkfile(newPath, 0, "", false, mkfileMsg)) {
+            if (!FileSystemManager::Mkfile(newPath, 0, "", false, mkfileMsg, false)) {
                 createErr = mkfileMsg;
                 return false;
             }
@@ -3942,7 +4026,7 @@ bool FileSystemManager::Copy(const std::string& path,
         }
 
         std::string mkfileMsg;
-        bool ok = FileSystemManager::Mkfile(newPath, 0, tempPath, false, mkfileMsg);
+        bool ok = FileSystemManager::Mkfile(newPath, 0, tempPath, false, mkfileMsg, false);
         std::remove(tempPath.c_str());
 
         if (!ok) {
@@ -3956,6 +4040,39 @@ bool FileSystemManager::Copy(const std::string& path,
     if (!createCopyTree(createCopyTree, sourceTree, dstPath, errMsg)) {
         outMsg = errMsg;
         return false;
+    }
+
+    if (writeJournal) {
+        MountedPartition mpJournal{};
+        if (!MountManager::FindById(SessionManager::currentSession.partitionId, mpJournal)) {
+            outMsg = "La copia se realizo, pero no se encontro la particion para registrar journaling.";
+            return false;
+        }
+
+        std::fstream journalFile(mpJournal.path, std::ios::in | std::ios::out | std::ios::binary);
+        if (!journalFile.is_open()) {
+            outMsg = "La copia se realizo, pero no se pudo abrir el disco para registrar journaling.";
+            return false;
+        }
+
+        SuperBlock sbJournal{};
+        journalFile.seekg(mpJournal.start);
+        journalFile.read(reinterpret_cast<char*>(&sbJournal), sizeof(SuperBlock));
+        if (!journalFile) {
+            journalFile.close();
+            outMsg = "La copia se realizo, pero no se pudo leer el SuperBloque para registrar journaling.";
+            return false;
+        }
+
+        std::string journalError;
+        if (!AppendJournalEntry(journalFile, mpJournal.start, sbJournal,
+                                "copy", srcPath, "destino=" + dstPath, journalError)) {
+            journalFile.close();
+            outMsg = journalError;
+            return false;
+        }
+
+        journalFile.close();
     }
 
     outMsg = "Ruta copiada correctamente: " + srcPath + " -> " + dstPath;
@@ -4008,7 +4125,17 @@ bool FileSystemManager::Move(const std::string& path,
     }
 
     size_t lastSlash = srcPath.find_last_of('/');
+    if (lastSlash == std::string::npos) {
+        outMsg = "No se pudo determinar la carpeta padre de la ruta origen.";
+        return false;
+    }
+
+    std::string sourceParentPath = srcPath.substr(0, lastSlash);
     std::string sourceName = srcPath.substr(lastSlash + 1);
+
+    if (sourceParentPath.empty()) {
+        sourceParentPath = "/";
+    }
 
     if (sourceName.empty()) {
         outMsg = "No se pudo determinar el nombre de la ruta origen.";
@@ -4024,16 +4151,194 @@ bool FileSystemManager::Move(const std::string& path,
         return false;
     }
 
+    // Evitar mover una carpeta dentro de si misma o dentro de una subcarpeta suya
+    if (dstPath == srcPath ||
+        (dstPath.size() > srcPath.size() &&
+         dstPath.compare(0, srcPath.size(), srcPath) == 0 &&
+         dstPath[srcPath.size()] == '/')) {
+        outMsg = "No se puede mover una carpeta dentro de si misma o dentro de una subcarpeta de ella.";
+        return false;
+    }
+
+    MountedPartition mp{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
+        outMsg = "No se encontro la particion de la sesion activa.";
+        return false;
+    }
+
+    std::fstream file(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        outMsg = "No se pudo abrir el disco de la sesion activa.";
+        return false;
+    }
+
+    SuperBlock sb{};
+    file.seekg(mp.start);
+    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+    if (!file) {
+        outMsg = "No se pudo leer el SuperBloque.";
+        file.close();
+        return false;
+    }
+
+    ChownCmdUserInfo currentUser;
+    if (!ChownCmdGetUserInfo(file, sb, SessionManager::currentSession.user, currentUser) ||
+        !currentUser.active) {
+        outMsg = "No se pudo obtener la informacion del usuario actual.";
+        file.close();
+        return false;
+    }
+
+    bool isRoot = (SessionManager::currentSession.user == "root");
+
+    // =========================
+    // Resolver carpeta padre origen
+    // =========================
+    int sourceParentInodeIndex = 0;
+    Inode sourceParentInode{};
+    file.seekg(sb.s_inode_start + sourceParentInodeIndex * (int)sizeof(Inode));
+    file.read(reinterpret_cast<char*>(&sourceParentInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo raiz.";
+        file.close();
+        return false;
+    }
+
+    if (sourceParentPath != "/") {
+        std::vector<std::string> parts = splitFS(sourceParentPath, '/');
+        std::vector<std::string> cleanParts;
+
+        for (const auto& p : parts) {
+            std::string t = trimFS(p);
+            if (!t.empty()) cleanParts.push_back(t);
+        }
+
+        for (const auto& part : cleanParts) {
+            int nextInodeIndex = FindEntryInFolder(file, sb, sourceParentInode, part);
+            if (nextInodeIndex == -1) {
+                outMsg = "No existe la carpeta padre origen: " + part;
+                file.close();
+                return false;
+            }
+
+            Inode nextInode{};
+            file.seekg(sb.s_inode_start + nextInodeIndex * (int)sizeof(Inode));
+            file.read(reinterpret_cast<char*>(&nextInode), sizeof(Inode));
+            if (!file) {
+                outMsg = "No se pudo leer un inodo intermedio de la ruta origen.";
+                file.close();
+                return false;
+            }
+
+            if (nextInode.i_type != '0') {
+                outMsg = "Una ruta intermedia del origen no es carpeta: " + part;
+                file.close();
+                return false;
+            }
+
+            sourceParentInodeIndex = nextInodeIndex;
+            sourceParentInode = nextInode;
+        }
+    }
+
+    if (!FsCanWrite(sourceParentInode, currentUser, isRoot)) {
+        outMsg = "Permiso denegado para mover en la carpeta origen: " + sourceParentPath;
+        file.close();
+        return false;
+    }
+
+    int sourceInodeIndex = FindEntryInFolder(file, sb, sourceParentInode, sourceName);
+    if (sourceInodeIndex == -1) {
+        outMsg = "No existe la ruta origen: " + srcPath;
+        file.close();
+        return false;
+    }
+
+    Inode sourceInode{};
+    file.seekg(sb.s_inode_start + sourceInodeIndex * (int)sizeof(Inode));
+    file.read(reinterpret_cast<char*>(&sourceInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo de la ruta origen.";
+        file.close();
+        return false;
+    }
+
+    // =========================
+    // Resolver carpeta destino
+    // =========================
+    int destInodeIndex = 0;
+    Inode destInode{};
+    file.seekg(sb.s_inode_start + destInodeIndex * (int)sizeof(Inode));
+    file.read(reinterpret_cast<char*>(&destInode), sizeof(Inode));
+    if (!file) {
+        outMsg = "No se pudo leer el inodo raiz para destino.";
+        file.close();
+        return false;
+    }
+
+    if (dstPath != "/") {
+        std::vector<std::string> parts = splitFS(dstPath, '/');
+        std::vector<std::string> cleanParts;
+
+        for (const auto& p : parts) {
+            std::string t = trimFS(p);
+            if (!t.empty()) cleanParts.push_back(t);
+        }
+
+        for (const auto& part : cleanParts) {
+            int nextInodeIndex = FindEntryInFolder(file, sb, destInode, part);
+            if (nextInodeIndex == -1) {
+                outMsg = "No existe la carpeta destino: " + part;
+                file.close();
+                return false;
+            }
+
+            Inode nextInode{};
+            file.seekg(sb.s_inode_start + nextInodeIndex * (int)sizeof(Inode));
+            file.read(reinterpret_cast<char*>(&nextInode), sizeof(Inode));
+            if (!file) {
+                outMsg = "No se pudo leer un inodo intermedio de la ruta destino.";
+                file.close();
+                return false;
+            }
+
+            if (nextInode.i_type != '0') {
+                outMsg = "Una ruta intermedia del destino no es carpeta: " + part;
+                file.close();
+                return false;
+            }
+
+            destInodeIndex = nextInodeIndex;
+            destInode = nextInode;
+        }
+    }
+
+    if (!FsCanWrite(destInode, currentUser, isRoot)) {
+        outMsg = "Permiso denegado para mover hacia la carpeta destino: " + dstPath;
+        file.close();
+        return false;
+    }
+
+    if (FindEntryInFolder(file, sb, destInode, sourceName) != -1) {
+        outMsg = "Ya existe una entrada con el mismo nombre en la carpeta destino: " + sourceName;
+        file.close();
+        return false;
+    }
+
+    file.close();
+
+    // Copiar SIN journaling interno
     std::string copyMsg;
-    if (!FileSystemManager::Copy(srcPath, dstPath, copyMsg)) {
+    if (!FileSystemManager::Copy(srcPath, dstPath, copyMsg, false)) {
         outMsg = copyMsg;
         return false;
     }
 
+    // Eliminar origen SIN journaling interno
     std::string removeMsg;
-    if (!FileSystemManager::Remove(srcPath, removeMsg)) {
+    if (!FileSystemManager::Remove(srcPath, removeMsg, false)) {
         std::string rollbackMsg;
-        if (!FileSystemManager::Remove(finalMovedPath, rollbackMsg)) {
+        if (!FileSystemManager::Remove(finalMovedPath, rollbackMsg, false)) {
             outMsg = "Move fallo al eliminar la ruta original despues de copiarla. "
                      "Ademas no se pudo revertir la copia creada en: " + finalMovedPath +
                      ". Error original: " + removeMsg +
@@ -4045,6 +4350,38 @@ bool FileSystemManager::Move(const std::string& path,
                  "pero la copia creada fue revertida. Detalle: " + removeMsg;
         return false;
     }
+
+    // Registrar SOLO el journaling de move
+    MountedPartition mpJournal{};
+    if (!MountManager::FindById(SessionManager::currentSession.partitionId, mpJournal)) {
+        outMsg = "La ruta se movio correctamente, pero no se encontro la particion para registrar journaling.";
+        return false;
+    }
+
+    std::fstream journalFile(mpJournal.path, std::ios::in | std::ios::out | std::ios::binary);
+    if (!journalFile.is_open()) {
+        outMsg = "La ruta se movio correctamente, pero no se pudo abrir el disco para registrar journaling.";
+        return false;
+    }
+
+    SuperBlock sbJournal{};
+    journalFile.seekg(mpJournal.start);
+    journalFile.read(reinterpret_cast<char*>(&sbJournal), sizeof(SuperBlock));
+    if (!journalFile) {
+        journalFile.close();
+        outMsg = "La ruta se movio correctamente, pero no se pudo leer el SuperBloque para registrar journaling.";
+        return false;
+    }
+
+    std::string journalError;
+    if (!AppendJournalEntry(journalFile, mpJournal.start, sbJournal,
+                            "move", srcPath, "destino=" + dstPath, journalError)) {
+        journalFile.close();
+        outMsg = journalError;
+        return false;
+    }
+
+    journalFile.close();
 
     outMsg = "Ruta movida correctamente: " + srcPath + " -> " + dstPath;
     return true;
@@ -4221,15 +4558,6 @@ bool FileSystemManager::Chown(const std::string& path,
 
     file.close();
 
-    // Si tu proyecto ya tiene journaling centralizado, deja esta linea.
-    // Si compila con error porque aun no existe AppendJournalEntry con esa firma,
-    // comentala temporalmente.
-    /*
-    AppendJournalEntry(SessionManager::currentSession.partitionId,
-                       "chown",
-                       path,
-                       "usuario=" + newOwner + ",r=" + std::string(recursive ? "1" : "0"));
-    */
     outMsg = "Propietario actualizado correctamente: " + path +
              " -> usuario=" + newOwner;
     return true;
