@@ -2548,7 +2548,16 @@ bool FileSystemManager::Mkfile(const std::string& path,
         return false;
     }
 
-    // Separar ruta padre y nombre del archivo
+    ChownCmdUserInfo currentUser;
+    if (!ChownCmdGetUserInfo(file, sb, SessionManager::currentSession.user, currentUser) ||
+        !currentUser.active) {
+        outMsg = "No se pudo obtener la informacion del usuario actual.";
+        file.close();
+        return false;
+    }
+
+    bool isRoot = (SessionManager::currentSession.user == "root");
+
     size_t lastSlash = path.find_last_of('/');
     if (lastSlash == std::string::npos) {
         outMsg = "Ruta invalida.";
@@ -2569,14 +2578,6 @@ bool FileSystemManager::Mkfile(const std::string& path,
         parentPath = "/";
     }
 
-    // Navegar hasta carpeta padre
-    std::vector<std::string> parts = splitFS(parentPath, '/');
-    std::vector<std::string> cleanParts;
-    for (const auto& p : parts) {
-        std::string t = trimFS(p);
-        if (!t.empty()) cleanParts.push_back(t);
-    }
-
     int currentInodeIndex = 0; // root
     Inode currentInode{};
     file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
@@ -2587,71 +2588,108 @@ bool FileSystemManager::Mkfile(const std::string& path,
         return false;
     }
 
-    for (const auto& folderName : cleanParts) {
-        int foundInode = FindEntryInFolder(file, sb, currentInode, folderName);
-        if (foundInode == -1) {
-            if (!recursive) {
-                outMsg = "No existe la carpeta padre: " + folderName;
-                file.close();
-                return false;
-            }
+    if (parentPath != "/") {
+        std::vector<std::string> parts = splitFS(parentPath, '/');
+        std::vector<std::string> cleanParts;
+        for (const auto& p : parts) {
+            std::string t = trimFS(p);
+            if (!t.empty()) cleanParts.push_back(t);
+        }
 
-            // crear toda la ruta padre con mkdir -p
-            std::string mkdirMsg;
-            if (!Mkdir(parentPath, true, mkdirMsg)) {
-                outMsg = "No se pudo crear la ruta padre con -r: " + parentPath;
-                file.close();
-                return false;
-            }
+        for (const auto& folderName : cleanParts) {
+            int foundInode = FindEntryInFolder(file, sb, currentInode, folderName);
 
-            // volver a empezar la navegación desde root
-            currentInodeIndex = 0;
-            file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
-            file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
-            if (!file) {
-                outMsg = "No se pudo releer el inodo raiz tras mkdir -r.";
-                file.close();
-                return false;
-            }
-
-            bool pathOk = true;
-            for (const auto& retryFolder : cleanParts) {
-                int retryInode = FindEntryInFolder(file, sb, currentInode, retryFolder);
-                if (retryInode == -1) {
-                    pathOk = false;
-                    break;
-                }
-
-                currentInodeIndex = retryInode;
-                file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
-                file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
-                if (!file) {
-                    outMsg = "No se pudo releer un inodo de carpeta padre.";
+            if (foundInode == -1) {
+                if (!recursive) {
+                    outMsg = "No existe la carpeta padre: " + folderName;
                     file.close();
                     return false;
                 }
+
+                file.close();
+
+                std::string mkdirMsg;
+                if (!Mkdir(parentPath, true, mkdirMsg, writeJournal)) {
+                    outMsg = "No se pudo crear la carpeta padre con -r: " + mkdirMsg;
+                    return false;
+                }
+
+                file.open(mp.path, std::ios::in | std::ios::out | std::ios::binary);
+                if (!file.is_open()) {
+                    outMsg = "No se pudo reabrir el disco despues de crear carpetas.";
+                    return false;
+                }
+
+                file.seekg(mp.start);
+                file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+                if (!file) {
+                    outMsg = "No se pudo releer el SuperBloque.";
+                    file.close();
+                    return false;
+                }
+
+                currentInodeIndex = 0;
+                file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+                file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+                if (!file) {
+                    outMsg = "No se pudo releer el inodo raiz.";
+                    file.close();
+                    return false;
+                }
+
+                for (const auto& verifyPart : cleanParts) {
+                    int verifyInode = FindEntryInFolder(file, sb, currentInode, verifyPart);
+                    if (verifyInode == -1) {
+                        outMsg = "No existe la carpeta padre luego de crearla: " + verifyPart;
+                        file.close();
+                        return false;
+                    }
+
+                    Inode nextInode{};
+                    file.seekg(sb.s_inode_start + verifyInode * (int)sizeof(Inode));
+                    file.read(reinterpret_cast<char*>(&nextInode), sizeof(Inode));
+                    if (!file) {
+                        outMsg = "No se pudo leer un inodo padre luego de crear carpetas.";
+                        file.close();
+                        return false;
+                    }
+
+                    if (nextInode.i_type != '0') {
+                        outMsg = "Una ruta intermedia no es carpeta: " + verifyPart;
+                        file.close();
+                        return false;
+                    }
+
+                    currentInodeIndex = verifyInode;
+                    currentInode = nextInode;
+                }
+
+                break;
             }
 
-            if (!pathOk) {
-                outMsg = "No se pudo reconstruir la ruta padre tras usar -r.";
+            currentInodeIndex = foundInode;
+            file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
+            file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
+            if (!file) {
+                outMsg = "No se pudo leer un inodo al navegar a la carpeta padre.";
                 file.close();
                 return false;
             }
 
-            break;
-        }
-
-        currentInodeIndex = foundInode;
-        file.seekg(sb.s_inode_start + currentInodeIndex * (int)sizeof(Inode));
-        file.read(reinterpret_cast<char*>(&currentInode), sizeof(Inode));
-        if (!file) {
-            outMsg = "No se pudo leer un inodo de carpeta padre.";
-            file.close();
-            return false;
+            if (currentInode.i_type != '0') {
+                outMsg = "Una ruta intermedia no es carpeta: " + folderName;
+                file.close();
+                return false;
+            }
         }
     }
 
-    // Verificar que no exista ya el archivo
+    if (!FsCanWrite(currentInode, currentUser, isRoot)) {
+        outMsg = "Permiso denegado para crear archivos en: " + parentPath;
+        file.close();
+        return false;
+    }
+
     int existing = FindEntryInFolder(file, sb, currentInode, fileName);
     if (existing != -1) {
         outMsg = "Ya existe un archivo o carpeta con ese nombre: " + fileName;
@@ -2659,7 +2697,6 @@ bool FileSystemManager::Mkfile(const std::string& path,
         return false;
     }
 
-    // Generar contenido
     std::string content;
     if (!contPath.empty()) {
         std::ifstream external(contPath, std::ios::binary);
@@ -2704,10 +2741,9 @@ bool FileSystemManager::Mkfile(const std::string& path,
         assignedBlocks.push_back(blockIndex);
     }
 
-    // Crear inodo de archivo
     Inode newFileInode{};
-    newFileInode.i_uid = 1;
-    newFileInode.i_gid = 1;
+    newFileInode.i_uid = currentUser.uid;
+    newFileInode.i_gid = currentUser.gid;
     newFileInode.i_size = (int)content.size();
 
     std::string now = nowStringFS();
@@ -2723,7 +2759,6 @@ bool FileSystemManager::Mkfile(const std::string& path,
     newFileInode.i_type = '1';
     std::memcpy(newFileInode.i_perm, "664", 3);
 
-    // Escribir bloques del archivo
     size_t offset = 0;
     for (size_t i = 0; i < assignedBlocks.size(); i++) {
         FileBlock fb{};
@@ -2746,15 +2781,18 @@ bool FileSystemManager::Mkfile(const std::string& path,
         offset += chunk;
     }
 
-    // Si size=0 y cont vacío, igual dejamos el archivo con 1 bloque vacío
     if (content.empty() && !assignedBlocks.empty()) {
         FileBlock fb{};
         std::memset(fb.b_content, 0, sizeof(fb.b_content));
         file.seekp(sb.s_block_start + assignedBlocks[0] * (int)sizeof(FileBlock));
         file.write(reinterpret_cast<char*>(&fb), sizeof(FileBlock));
+        if (!file) {
+            outMsg = "No se pudo escribir el bloque vacio del archivo.";
+            file.close();
+            return false;
+        }
     }
 
-    // Escribir inodo de archivo
     file.seekp(sb.s_inode_start + newInodeIndex * (int)sizeof(Inode));
     file.write(reinterpret_cast<char*>(&newFileInode), sizeof(Inode));
     if (!file) {
@@ -2763,13 +2801,11 @@ bool FileSystemManager::Mkfile(const std::string& path,
         return false;
     }
 
-    // Enlazar en carpeta padre
     if (!AddEntryToFolder(file, sb, currentInode, currentInodeIndex, fileName, newInodeIndex, outMsg)) {
         file.close();
         return false;
     }
 
-    // Escribir superbloque actualizado
     file.seekp(mp.start);
     file.write(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
     if (!file) {
@@ -2777,10 +2813,6 @@ bool FileSystemManager::Mkfile(const std::string& path,
         file.close();
         return false;
     }
-
-    std::string journalContent = contPath.empty()
-        ? ("size=" + std::to_string(size))
-        : ("cont=" + contPath);
 
     if (writeJournal) {
         std::string journalError;
@@ -2796,7 +2828,6 @@ bool FileSystemManager::Mkfile(const std::string& path,
     }
 
     file.close();
-
     outMsg = "Archivo creado correctamente: " + path;
     return true;
 }

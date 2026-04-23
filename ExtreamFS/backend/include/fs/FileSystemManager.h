@@ -31,11 +31,11 @@ public:
                       bool writeJournal = true);
 
     static bool Mkfile(const std::string& path,
-                       int size,
-                       const std::string& contPath,
-                       bool recursive,
-                       std::string& outMsg,
-                       bool writeJournal = true);
+                   int size,
+                   const std::string& contPath,
+                   bool recursive,
+                   std::string& outMsg,
+                   bool writeJournal = true);
 
     static bool Cat(const std::vector<std::string>& filePaths, std::string& outMsg);
 
