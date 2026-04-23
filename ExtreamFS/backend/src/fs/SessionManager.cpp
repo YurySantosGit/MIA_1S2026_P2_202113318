@@ -1,6 +1,7 @@
 #include "fs/SessionManager.h"
 #include "disk/MountManager.h"
 #include "fs/Ext2Structs.h"
+#include "fs/FileSystemManager.h"
 
 #include <fstream>
 #include <sstream>
@@ -45,24 +46,75 @@ bool SessionManager::Login(const std::string& user,
         return false;
     }
 
-    std::fstream file(mp.path, std::ios::in | std::ios::binary);
-    if (!file.is_open()) {
+    auto openPartitionFile = [&](std::fstream& f) -> bool {
+        f.close();
+        f.clear();
+        f.open(mp.path, std::ios::in | std::ios::binary);
+        return f.is_open();
+    };
+
+    auto readSuperBlock = [&](std::fstream& f, SuperBlock& sb) -> bool {
+        sb = SuperBlock{};
+        f.clear();
+        f.seekg(mp.start);
+        f.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
+        return static_cast<bool>(f);
+    };
+
+    std::fstream file;
+    if (!openPartitionFile(file)) {
         outMsg = "No se pudo abrir el disco de la particion montada.";
         return false;
     }
 
-    // 1) Leer superbloque desde el inicio de la partición
+    // 1) Leer superbloque
     SuperBlock sb{};
-    file.seekg(mp.start);
-    file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
-    if (!file) {
+    if (!readSuperBlock(file, sb)) {
         outMsg = "No se pudo leer el SuperBloque.";
         file.close();
         return false;
     }
 
+    // Si el superbloque no es valido, intentar recovery automatico
+    auto superBlockLooksInvalid = [&](const SuperBlock& x) -> bool {
+        if (x.s_magic != 0xEF53) return true;
+        if (x.s_inode_start <= 0) return true;
+        if (x.s_block_start <= 0) return true;
+        if (x.s_inode_size <= 0) return true;
+        if (x.s_block_size <= 0) return true;
+        return false;
+    };
+
+    if (superBlockLooksInvalid(sb)) {
+        file.close();
+
+        std::string recoveryMsg;
+        if (!FileSystemManager::Recovery(id, recoveryMsg)) {
+            outMsg = "La particion esta dañada y no se pudo recuperar para login. " + recoveryMsg;
+            return false;
+        }
+
+        if (!openPartitionFile(file)) {
+            outMsg = "La particion fue recuperada, pero no se pudo reabrir el disco.";
+            return false;
+        }
+
+        if (!readSuperBlock(file, sb)) {
+            outMsg = "La particion fue recuperada, pero no se pudo releer el SuperBloque.";
+            file.close();
+            return false;
+        }
+
+        if (superBlockLooksInvalid(sb)) {
+            outMsg = "La particion sigue inconsistente despues del recovery.";
+            file.close();
+            return false;
+        }
+    }
+
     // 2) Leer el inodo 1 (users.txt)
     Inode usersInode{};
+    file.clear();
     file.seekg(sb.s_inode_start + sizeof(Inode)); // inodo 1
     file.read(reinterpret_cast<char*>(&usersInode), sizeof(Inode));
     if (!file) {
@@ -79,6 +131,7 @@ bool SessionManager::Login(const std::string& user,
         if (blockIndex < 0) continue;
 
         FileBlock usersBlock{};
+        file.clear();
         file.seekg(sb.s_block_start + blockIndex * sizeof(FileBlock));
         file.read(reinterpret_cast<char*>(&usersBlock), sizeof(FileBlock));
         if (!file) {

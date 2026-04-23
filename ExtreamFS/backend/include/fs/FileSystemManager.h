@@ -51,17 +51,17 @@ public:
                      std::string& outMsg);
 
     static bool Rename(const std::string& path,
-                       const std::string& newName,
-                       std::string& outMsg);
+                   const std::string& newName,
+                   std::string& outMsg);
 
     static bool Copy(const std::string& path,
-                     const std::string& destino,
-                     std::string& outMsg,
-                     bool writeJournal = true);
+                 const std::string& destino,
+                 std::string& outMsg,
+                 bool writeJournal = true);
 
     static bool Move(const std::string& path,
-                     const std::string& destino,
-                     std::string& outMsg);
+                 const std::string& destino,
+                 std::string& outMsg);
 
     static bool Find(const std::string& path,
                      const std::string& name,

@@ -126,6 +126,7 @@ CMakeFiles/extreamfs.dir/src/fs/SessionManager.cpp.o: \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
+ /home/yurysantos/Escritorio/MIA_1S2026_P2_202113318/ExtreamFS/backend/include/fs/FileSystemManager.h \
  /usr/include/c++/13/fstream /usr/include/c++/13/istream \
  /usr/include/c++/13/ios /usr/include/c++/13/exception \
  /usr/include/c++/13/bits/exception_ptr.h \

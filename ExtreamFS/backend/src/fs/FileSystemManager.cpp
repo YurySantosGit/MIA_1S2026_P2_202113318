@@ -49,9 +49,34 @@ static int calcN(int partitionSize, bool isExt3) {
     int sb = (int)sizeof(SuperBlock);
     int journal = isExt3 ? (int)sizeof(Journal) : 0;
     int inode = (int)sizeof(Inode);
-    int block = (int)sizeof(FileBlock); // todos valen 64 bytes
+    int block = (int)sizeof(FileBlock);
     double n = (double)(partitionSize - sb - journal) / (1.0 + 3.0 + inode + 3.0 * block);
     return (int)std::floor(n);
+}
+
+static void setJournalDate(char dest[20]) {
+    std::memset(dest, 0, 20);
+
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+    localtime_r(&t, &tm);
+
+    std::strftime(dest, 20, "%Y-%m-%d %H:%M:%S", &tm);
+}
+
+static std::string journalDateToString(const char rawDate[20]) {
+    return std::string(rawDate);
+}
+
+static std::string sanitizeJournalText(const std::string& text, size_t maxLen) {
+    std::string clean = text;
+    for (char& c : clean) {
+        if (c == '\n' || c == '\r' || c == '\t') c = ' ';
+    }
+    if (clean.size() > maxLen) {
+        clean = clean.substr(0, maxLen);
+    }
+    return clean;
 }
 
 static int FsPermDigit(char c) {
@@ -434,10 +459,6 @@ static bool ChmodCmdApplyRecursive(std::fstream& file,
     return true;
 }
 
-static float nowJournalValue() {
-    return static_cast<float>(std::time(nullptr));
-}
-
 static std::string sanitizeJournalText(const std::string& text) {
     std::string clean;
     clean.reserve(text.size());
@@ -451,18 +472,6 @@ static std::string sanitizeJournalText(const std::string& text) {
     }
 
     return trimFS(clean);
-}
-
-static std::string journalDateToString(float rawDate) {
-    std::time_t t = static_cast<std::time_t>(rawDate);
-    if (t <= 0) return "-";
-
-    std::tm tm{};
-    localtime_r(&t, &tm);
-
-    char buf[20];
-    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm);
-    return std::string(buf);
 }
 
 static std::vector<int> getUsersTxtUsedBlocks(const Inode& inode) {
@@ -827,16 +836,19 @@ bool FileSystemManager::AppendJournalEntry(std::fstream& file,
 
     Information entry{};
     std::string op = sanitizeJournalText(operation);
-    std::string p = sanitizeJournalText(path);
-    std::string c = sanitizeJournalText(content);
+    std::string p  = sanitizeJournalText(path);
+    std::string c  = sanitizeJournalText(content);
 
     std::strncpy(entry.i_operation, op.c_str(), sizeof(entry.i_operation) - 1);
-    std::strncpy(entry.i_path, p.c_str(), sizeof(entry.i_path) - 1);
-    std::strncpy(entry.i_content, c.c_str(), sizeof(entry.i_content) - 1);
-    entry.i_date = nowJournalValue();
+    std::strncpy(entry.i_path,      p.c_str(),  sizeof(entry.i_path) - 1);
+    std::strncpy(entry.i_content,   c.c_str(),  sizeof(entry.i_content) - 1);
+    setJournalDate(entry.i_date);
 
     const int maxEntries = (int)(sizeof(journal.j_content) / sizeof(journal.j_content[0]));
-    if (journal.j_count < 0) journal.j_count = 0;
+
+    if (journal.j_count < 0) {
+        journal.j_count = 0;
+    }
 
     int writeIndex = 0;
     if (journal.j_count < maxEntries) {
@@ -859,6 +871,7 @@ bool FileSystemManager::AppendJournalEntry(std::fstream& file,
         return false;
     }
 
+    file.flush();
     return true;
 }
 
@@ -913,6 +926,7 @@ bool FileSystemManager::ShowJournaling(const std::string& id, std::string& outMs
 
     const int maxEntries = (int)(sizeof(journal.j_content) / sizeof(journal.j_content[0]));
     int total = journal.j_count;
+
     if (total < 0) total = 0;
     if (total > maxEntries) total = maxEntries;
 
@@ -931,19 +945,20 @@ bool FileSystemManager::ShowJournaling(const std::string& id, std::string& outMs
     for (int i = 0; i < total; i++) {
         const Information& info = journal.j_content[i];
 
-        std::string op = sanitizeJournalText(info.i_operation);
-        std::string path = sanitizeJournalText(info.i_path);
-        std::string content = sanitizeJournalText(info.i_content);
+        std::string op = sanitizeJournalText(std::string(info.i_operation), sizeof(info.i_operation) - 1);
+        std::string p = sanitizeJournalText(std::string(info.i_path), sizeof(info.i_path) - 1);
+        std::string c = sanitizeJournalText(std::string(info.i_content), sizeof(info.i_content) - 1);
         std::string date = journalDateToString(info.i_date);
 
         if (op.empty()) op = "-";
-        if (path.empty()) path = "-";
-        if (content.empty()) content = "-";
+        if (p.empty()) p = "-";
+        if (c.empty()) c = "-";
+        if (date.empty()) date = "-";
 
         oss << "  [" << (i + 1) << "] "
             << "op=" << op
-            << " | path=" << path
-            << " | content=" << content
+            << " | path=" << p
+            << " | content=" << c
             << " | date=" << date
             << "\n";
     }
@@ -1035,12 +1050,12 @@ bool FileSystemManager::Mkfs(const std::string& id,
         std::strncpy(journal.j_content[0].i_operation, "mkdir", sizeof(journal.j_content[0].i_operation) - 1);
         std::strncpy(journal.j_content[0].i_path, "/", sizeof(journal.j_content[0].i_path) - 1);
         std::strncpy(journal.j_content[0].i_content, "root", sizeof(journal.j_content[0].i_content) - 1);
-        journal.j_content[0].i_date = nowJournalValue();
+        setJournalDate(journal.j_content[0].i_date);
 
         std::strncpy(journal.j_content[1].i_operation, "mkfile", sizeof(journal.j_content[1].i_operation) - 1);
         std::strncpy(journal.j_content[1].i_path, "/users.txt", sizeof(journal.j_content[1].i_path) - 1);
         std::strncpy(journal.j_content[1].i_content, "1,G,root\n1,U,root,root,123\n", sizeof(journal.j_content[1].i_content) - 1);
-        journal.j_content[1].i_date = nowJournalValue();
+        setJournalDate(journal.j_content[1].i_date);
 
         file.seekp(journalStart);
         file.write(reinterpret_cast<char*>(&journal), sizeof(Journal));
@@ -4614,7 +4629,7 @@ bool FileSystemManager::Chmod(const std::string& path,
         return false;
     }
 
-    MountedPartition mp;
+    MountedPartition mp{};
     if (!MountManager::FindById(SessionManager::currentSession.partitionId, mp)) {
         outMsg = "No existe una particion montada con id: " +
                  SessionManager::currentSession.partitionId;
@@ -4628,6 +4643,7 @@ bool FileSystemManager::Chmod(const std::string& path,
     }
 
     SuperBlock sb{};
+    file.clear();
     file.seekg(mp.start);
     file.read(reinterpret_cast<char*>(&sb), sizeof(SuperBlock));
     if (!file.good()) {
@@ -4636,7 +4652,7 @@ bool FileSystemManager::Chmod(const std::string& path,
         return false;
     }
 
-    ChownCmdUserInfo currentUser;
+    ChownCmdUserInfo currentUser{};
     if (!ChownCmdGetUserInfo(file, sb, SessionManager::currentSession.user, currentUser) ||
         !currentUser.active) {
         outMsg = "No se pudo obtener la informacion del usuario actual.";
@@ -4644,12 +4660,98 @@ bool FileSystemManager::Chmod(const std::string& path,
         return false;
     }
 
-    int inodeIndex = -1;
+    auto fixedName = [](const char raw[12]) -> std::string {
+        size_t len = 0;
+        while (len < 12 && raw[len] != '\0') {
+            len++;
+        }
+        return std::string(raw, len);
+    };
+
+    auto readInodeLocal = [&](int inodeIndex, Inode& inode) -> bool {
+        if (inodeIndex < 0) return false;
+        file.clear();
+        file.seekg(sb.s_inode_start + inodeIndex * (int)sizeof(Inode), std::ios::beg);
+        file.read(reinterpret_cast<char*>(&inode), sizeof(Inode));
+        return (bool)file;
+    };
+
+    auto splitPathLocal = [](const std::string& p) -> std::vector<std::string> {
+        std::vector<std::string> parts;
+        std::stringstream ss(p);
+        std::string part;
+
+        while (std::getline(ss, part, '/')) {
+            if (!part.empty()) parts.push_back(part);
+        }
+
+        return parts;
+    };
+
+    auto findEntryLocal = [&](const Inode& folderInode, const std::string& name) -> int {
+        if (folderInode.i_type != '0') return -1;
+
+        for (int i = 0; i < 15; i++) {
+            if (folderInode.i_block[i] < 0) continue;
+
+            FolderBlock fb{};
+            file.clear();
+            file.seekg(sb.s_block_start + folderInode.i_block[i] * (int)sizeof(FolderBlock), std::ios::beg);
+            file.read(reinterpret_cast<char*>(&fb), sizeof(FolderBlock));
+            if (!file) continue;
+
+            for (int j = 0; j < 4; j++) {
+                int childInode = fb.b_content[j].b_inodo;
+                if (childInode < 0) continue;
+
+                std::string entryName = fixedName(fb.b_content[j].b_name);
+
+                if (entryName == name) {
+                    return childInode;
+                }
+            }
+        }
+
+        return -1;
+    };
+
+    int inodeIndex = 0;
     Inode targetInode{};
-    if (!ChownCmdResolvePath(file, sb, path, inodeIndex, targetInode)) {
-        outMsg = "No existe la ruta: " + path;
-        file.close();
-        return false;
+
+    if (path == "/") {
+        if (!readInodeLocal(0, targetInode)) {
+            outMsg = "No se pudo leer el inodo raiz.";
+            file.close();
+            return false;
+        }
+    } else {
+        std::vector<std::string> parts = splitPathLocal(path);
+
+        if (!readInodeLocal(0, targetInode)) {
+            outMsg = "No se pudo leer el inodo raiz.";
+            file.close();
+            return false;
+        }
+
+        for (const std::string& part : parts) {
+            int nextIndex = findEntryLocal(targetInode, part);
+
+            if (nextIndex < 0) {
+                outMsg = "No existe la ruta: " + path + " | fallo en componente: " + part;
+                file.close();
+                return false;
+            }
+
+            Inode nextInode{};
+            if (!readInodeLocal(nextIndex, nextInode)) {
+                outMsg = "No se pudo leer el inodo del componente: " + part;
+                file.close();
+                return false;
+            }
+
+            inodeIndex = nextIndex;
+            targetInode = nextInode;
+        }
     }
 
     bool isRoot = (SessionManager::currentSession.user == "root");
@@ -4672,14 +4774,16 @@ bool FileSystemManager::Chmod(const std::string& path,
         return false;
     }
 
-    file.close();
-
-    /*
-    AppendJournalEntry(SessionManager::currentSession.partitionId,
+    std::string journalMsg;
+    AppendJournalEntry(file,
+                       mp.start,
+                       sb,
                        "chmod",
                        path,
-                       "ugo=" + ugo + ",r=" + std::string(recursive ? "1" : "0"));
-    */
+                       "ugo=" + ugo + ",r=" + std::string(recursive ? "1" : "0"),
+                       journalMsg);
+
+    file.close();
 
     outMsg = "Permisos actualizados correctamente: " + path +
              " -> ugo=" + ugo;
@@ -5040,14 +5144,32 @@ bool FileSystemManager::Recovery(const std::string& id, std::string& outMsg) {
         }
         else if (op == "mkdir") {
             bool p = (content == "-p") || journalFlagTrue(getJournalKV(content, "p"));
-            ok = !path.empty() && Mkdir(path, p, stepMsg);
+            ok = !path.empty() && Mkdir(path, p, stepMsg, false);
         }
         else if (op == "mkfile") {
             int size = journalToInt(getJournalKV(content, "size"), 0);
             std::string cont = getJournalKV(content, "cont");
             bool p = journalFlagTrue(getJournalKV(content, "p"));
 
-            ok = !path.empty() && Mkfile(path, size, cont, p, stepMsg);
+            ok = !path.empty() && Mkfile(path, size, cont, p, stepMsg, false);
+        }
+        else if (op == "remove") {
+            ok = !path.empty() && FileSystemManager::Remove(path, stepMsg, false);
+        }
+        else if (op == "rename") {
+            std::string newName = getJournalKV(content, "name");
+            ok = !path.empty() && !newName.empty() &&
+                 FileSystemManager::Rename(path, newName, stepMsg);
+        }
+        else if (op == "copy") {
+            std::string destino = getJournalKV(content, "destino");
+            ok = !path.empty() && !destino.empty() &&
+                 FileSystemManager::Copy(path, destino, stepMsg, false);
+        }
+        else if (op == "move") {
+            std::string destino = getJournalKV(content, "destino");
+            ok = !path.empty() && !destino.empty() &&
+                 FileSystemManager::Move(path, destino, stepMsg);
         }
         else {
             // Si aparece alguna operación que todavía no manejas, la ignoramos

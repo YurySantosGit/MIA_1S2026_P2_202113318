@@ -4,7 +4,7 @@
 #pragma pack(push, 1)
 
 struct SuperBlock {
-    int32_t s_filesystem_type;   // 2 = EXT2
+    int32_t s_filesystem_type;   // 2 = EXT2, 3 = EXT3
     int32_t s_inodes_count;
     int32_t s_blocks_count;
     int32_t s_free_blocks_count;
@@ -24,10 +24,10 @@ struct SuperBlock {
 };
 
 struct Information {
-    char  i_operation[10];
-    char  i_path[32];
-    char  i_content[64];
-    float i_date;
+    char i_operation[16];
+    char i_path[128];
+    char i_content[128];
+    char i_date[20];
 };
 
 struct Journal {
@@ -44,7 +44,7 @@ struct Inode {
     char    i_mtime[20];
     int32_t i_block[15];
     char    i_type;       // '0' carpeta, '1' archivo
-    char    i_perm[3];    // por simplicidad: "664", "777", etc.
+    char    i_perm[4];    // "664", "777", "700", etc.
 };
 
 struct Content {
