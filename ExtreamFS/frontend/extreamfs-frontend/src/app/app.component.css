@@ -37,6 +37,14 @@
   color: #94a3b8;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .status-badge {
   padding: 10px 14px;
   border-radius: 999px;
@@ -46,7 +54,8 @@
   white-space: nowrap;
 }
 
-.main-column {
+.main-column,
+.visualizer-page {
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -126,6 +135,10 @@ button.secondary {
   background: #475569;
 }
 
+button.login-button {
+  background: #166534;
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -142,4 +155,303 @@ pre {
   color: #22c55e;
   font-family: "Courier New", monospace;
   white-space: pre-wrap;
+}
+
+.session-status {
+  margin-top: 12px;
+  color: #93c5fd;
+}
+
+.login-page {
+  min-height: calc(100vh - 150px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-card {
+  width: 420px;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.login-card h2 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 22px;
+  color: #e2e8f0;
+}
+
+.login-card label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  color: #cbd5e1;
+  font-weight: bold;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #e2e8f0;
+}
+
+.login-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.visualizer-message {
+  color: #93c5fd;
+  margin: 0;
+}
+
+.disk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.disk-card {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.disk-card:hover {
+  transform: translateY(-2px);
+  border-color: #60a5fa;
+  background: #0b1120;
+}
+
+.disk-card.selected {
+  border-color: #22c55e;
+  background: #052e16;
+}
+
+.disk-card h3 {
+  margin: 0 0 10px;
+  color: #bfdbfe;
+}
+
+.disk-card p {
+  margin: 6px 0;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.selected-disk-box {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.selected-disk-box p {
+  margin: 8px 0;
+  word-break: break-all;
+}
+
+.empty-message {
+  color: #fca5a5;
+}
+
+@media (max-width: 760px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .login-card {
+    width: 100%;
+  }
+
+  .disk-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.partition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.partition-card {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.partition-card:hover {
+  transform: translateY(-2px);
+  border-color: #60a5fa;
+  background: #0b1120;
+}
+
+.partition-card.selected {
+  border-color: #22c55e;
+  background: #052e16;
+}
+
+.partition-card h3 {
+  margin: 0 0 10px;
+  color: #bfdbfe;
+}
+
+.partition-card p {
+  margin: 6px 0;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.fs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.fs-toolbar span {
+  color: #93c5fd;
+}
+
+.fs-tree {
+  min-height: 240px;
+  max-height: 420px;
+  overflow: auto;
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 14px;
+  color: #22c55e;
+  font-family: "Courier New", monospace;
+  white-space: pre-wrap;
+}
+
+.fs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.fs-item {
+  display: grid;
+  grid-template-columns: 28px 180px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #020617;
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.fs-item:hover {
+  background: #0b1120;
+  border-color: #60a5fa;
+  transform: translateX(2px);
+}
+
+.fs-item.folder {
+  color: #93c5fd;
+}
+
+.fs-item.file {
+  color: #e2e8f0;
+}
+
+.fs-icon {
+  font-size: 18px;
+}
+
+.fs-item small {
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.raw-tree-box {
+  margin-top: 18px;
+  color: #cbd5e1;
+}
+
+.raw-tree-box summary {
+  cursor: pointer;
+  color: #93c5fd;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.fs-tree {
+  min-height: 220px;
+  max-height: 420px;
+  overflow: auto;
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 14px;
+  color: #22c55e;
+  font-family: "Courier New", monospace;
+  white-space: pre-wrap;
+}
+
+.file-viewer-box {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: #020617;
+}
+
+.file-viewer-box h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #bfdbfe;
+}
+
+.file-viewer-box p {
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.file-content-viewer {
+  min-height: 160px;
+  max-height: 360px;
+  overflow: auto;
+  background: #010916;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 14px;
+  color: #22c55e;
+  font-family: "Courier New", monospace;
+  white-space: pre-wrap;
+}
+
+.fs-item.folder {
+  color: #60a5fa;
+  font-weight: bold;
+}
+
+.fs-item.file {
+  color: #e2e8f0;
 }

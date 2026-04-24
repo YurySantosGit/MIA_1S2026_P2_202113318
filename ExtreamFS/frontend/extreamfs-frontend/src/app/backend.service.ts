@@ -17,6 +17,35 @@ export interface ExecuteResponse {
   reports: ReportItem[];
 }
 
+export interface PartitionItem {
+  name: string;
+  type: string;
+  fit: string;
+  start: number;
+  size: number;
+}
+
+export interface PartitionsResponse {
+  partitions: PartitionItem[];
+}
+
+export interface DiskItem {
+  name: string;
+  path: string;
+  size: number;
+}
+
+export interface DisksResponse {
+  disks: DiskItem[];
+  error?: string;
+}
+
+export interface FileSystemResponse {
+  success: boolean;
+  path: string;
+  output: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -34,4 +63,21 @@ export class BackendService {
       commands
     });
   }
+
+  getDisks(): Observable<DisksResponse> {
+    return this.http.get<DisksResponse>(`${this.apiUrl}/disks`);
+  }
+
+  getPartitions(path: string): Observable<PartitionsResponse> {
+    return this.http.get<PartitionsResponse>(
+      `${this.apiUrl}/partitions?path=${encodeURIComponent(path)}`
+    );
+  }
+
+  getFileSystem(path: string = '/'): Observable<FileSystemResponse> {
+    return this.http.get<FileSystemResponse>(
+      `${this.apiUrl}/fs?path=${encodeURIComponent(path)}`
+    );
+  }
+
 }

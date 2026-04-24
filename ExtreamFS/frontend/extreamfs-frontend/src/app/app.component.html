@@ -1,13 +1,32 @@
-<div class="app-container">
+\<div class="app-container">
   <header class="header">
     <div>
       <h1>ExtreamFS</h1>
-      <p>Frontend para ejecución de comandos y visualización de reportes</p>
+      <p>Frontend para ejecución de comandos, login y visualización del sistema</p>
     </div>
-    <div class="status-badge">Backend: {{ backendStatus }}</div>
+
+    <div class="header-actions">
+      <button *ngIf="currentView !== 'home'" class="secondary" (click)="goToHome()">
+        Inicio
+      </button>
+
+      <button *ngIf="currentView === 'home'" class="login-button" (click)="goToLogin()">
+        Iniciar sesión
+      </button>
+
+      <button (click)="goToVisualizer()">
+        Visualizador
+      </button>
+
+      <button *ngIf="sessionActive" class="secondary" (click)="logoutGraphic()">
+        Cerrar sesión
+      </button>
+
+      <div class="status-badge">Backend: {{ backendStatus }}</div>
+    </div>
   </header>
 
-  <main class="main-column">
+  <main class="main-column" *ngIf="currentView === 'home'">
     <section class="panel commands-panel">
       <h2>Entrada de comandos</h2>
 
@@ -17,6 +36,11 @@
         <button (click)="executeCommands()">Ejecutar</button>
         <button class="secondary" (click)="clearCommandInput()">Limpiar</button>
       </div>
+
+      <p class="session-status">
+        Sesión:
+        <strong>{{ sessionActive ? 'Activa' : 'Inactiva' }}</strong>
+      </p>
     </section>
 
     <section class="panel file-panel">
@@ -30,6 +54,7 @@
           accept=".smia,.txt"
           (change)="onFileSelected($event)"
         />
+
         <span class="file-name" *ngIf="selectedFileName">
           Archivo: {{ selectedFileName }}
         </span>
@@ -50,6 +75,153 @@
     <section class="panel output-panel">
       <h2>Salida / Consola</h2>
       <pre>{{ outputText }}</pre>
+    </section>
+  </main>
+
+  <main class="login-page" *ngIf="currentView === 'login'">
+    <section class="login-card">
+      <h2>Login</h2>
+
+      <label>ID Partición</label>
+      <input type="text" [(ngModel)]="loginId" placeholder="181A" />
+
+      <label>Usuario</label>
+      <input type="text" [(ngModel)]="loginUser" placeholder="root" />
+
+      <label>Contraseña</label>
+      <input type="password" [(ngModel)]="loginPass" placeholder="123" />
+
+      <div class="login-actions">
+        <button (click)="loginGraphic()">Submit</button>
+        <button class="secondary" (click)="goToHome()">Volver</button>
+      </div>
+
+      <p class="session-status">
+        Estado:
+        <strong>{{ sessionActive ? 'Sesión activa' : 'Sin sesión activa' }}</strong>
+      </p>
+    </section>
+  </main>
+
+  <main class="visualizer-page" *ngIf="currentView === 'visualizer'">
+    <section class="panel">
+      <h2>Visualizador del sistema de archivos</h2>
+      <p class="visualizer-message">{{ visualizerMessage }}</p>
+
+      <div class="button-group">
+        <button (click)="loadDisks()">Recargar discos</button>
+        <button class="secondary" (click)="goToHome()">Volver</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Selección de disco</h2>
+
+      <div class="disk-grid" *ngIf="disks.length > 0">
+        <div
+          class="disk-card"
+          *ngFor="let disk of disks"
+          [class.selected]="selectedDisk?.path === disk.path"
+          (click)="selectDisk(disk)"
+        >
+          <h3>{{ disk.name }}</h3>
+          <p><strong>Ruta:</strong> {{ disk.path }}</p>
+          <p><strong>Tamaño:</strong> {{ formatBytes(disk.size) }}</p>
+        </div>
+      </div>
+
+      <p *ngIf="disks.length === 0" class="empty-message">
+        No hay discos disponibles.
+      </p>
+    </section>
+
+    <section class="panel" *ngIf="selectedDisk">
+      <h2>Disco seleccionado</h2>
+
+      <div class="selected-disk-box">
+        <p><strong>Nombre:</strong> {{ selectedDisk.name }}</p>
+        <p><strong>Ruta:</strong> {{ selectedDisk.path }}</p>
+        <p><strong>Tamaño:</strong> {{ formatBytes(selectedDisk.size) }}</p>
+      </div>
+    </section>
+
+    <section class="panel" *ngIf="selectedDisk">
+      <h2>Particiones del disco</h2>
+
+      <div class="partition-grid" *ngIf="partitions.length > 0">
+        <div
+          class="partition-card"
+          *ngFor="let partition of partitions"
+          [class.selected]="selectedPartition?.name === partition.name"
+          (click)="selectPartition(partition)"
+        >
+          <h3>{{ partition.name }}</h3>
+          <p><strong>Tipo:</strong> {{ formatPartitionType(partition.type) }}</p>
+          <p><strong>Fit:</strong> {{ partition.fit }}</p>
+          <p><strong>Inicio:</strong> {{ partition.start }}</p>
+          <p><strong>Tamaño:</strong> {{ formatBytes(partition.size) }}</p>
+        </div>
+      </div>
+
+      <p *ngIf="partitions.length === 0" class="empty-message">
+        No hay particiones activas para mostrar.
+      </p>
+    </section>
+
+    <section class="panel" *ngIf="selectedPartition">
+      <h2>Partición seleccionada</h2>
+
+      <div class="selected-disk-box">
+        <p><strong>Nombre:</strong> {{ selectedPartition.name }}</p>
+        <p><strong>Tipo:</strong> {{ formatPartitionType(selectedPartition.type) }}</p>
+        <p><strong>Inicio:</strong> {{ selectedPartition.start }}</p>
+        <p><strong>Tamaño:</strong> {{ formatBytes(selectedPartition.size) }}</p>
+      </div>
+    </section>
+
+    <section class="panel" *ngIf="selectedPartition">
+      <h2>Navegación del sistema de archivos</h2>
+
+      <div class="fs-toolbar">
+        <span><strong>Ruta actual:</strong> {{ fsPath }}</span>
+        <button (click)="loadFileSystem('/')">Ir a raíz /</button>
+        <button class="secondary" (click)="loadFileSystem(fsPath)">Recargar</button>
+        <button class="secondary" (click)="goUpDirectory()">Subir</button>
+      </div>
+
+      <div class="fs-list" *ngIf="fsItems.length > 0">
+        <div
+          class="fs-item"
+          *ngFor="let item of fsItems"
+          [style.marginLeft.px]="item.level * 24"
+          [class.file]="item.isFile"
+          [class.folder]="!item.isFile"
+          (click)="openFsItem(item)"
+        >
+          <span class="fs-icon">{{ item.isFile ? '📄' : '📁' }}</span>
+          <span>{{ item.name }}</span>
+          <small>{{ item.path }}</small>
+        </div>
+      </div>
+
+      <p *ngIf="fsItems.length === 0" class="empty-message">
+        No hay elementos para mostrar o no hay sesión activa.
+      </p>
+
+      <section class="file-viewer-box" *ngIf="selectedFilePath">
+        <h3>Contenido del archivo</h3>
+
+        <p>
+          <strong>Archivo:</strong> {{ selectedFilePath }}
+        </p>
+
+        <pre class="file-content-viewer">{{ selectedFileContentViewer }}</pre>
+      </section>
+
+      <details class="raw-tree-box">
+        <summary>Salida detallada del árbol</summary>
+        <pre class="fs-tree">{{ fsOutput }}</pre>
+      </details>
     </section>
   </main>
 </div>
