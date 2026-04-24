@@ -40,7 +40,7 @@ bool HttpServer::Start() {
     res.set_header("Access-Control-Allow-Headers", "Content-Type");
     res.set_header("Content-Type", "application/json");
 
-    std::string basePath = "/home/yurysantos/Calificacion_MIA/Discos";
+    std::string basePath = "/home/ubuntu/Calificacion_MIA/Discos";
     std::string json = "{\"disks\":[";
 
     bool first = true;
