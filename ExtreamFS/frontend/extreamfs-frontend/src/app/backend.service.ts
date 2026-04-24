@@ -50,7 +50,7 @@ export interface FileSystemResponse {
   providedIn: 'root'
 })
 export class BackendService {
-  private apiUrl = 'http://localhost:8080/api';
+  private apiUrl = 'http://18.216.115.245:8080/api';
 
   constructor(private http: HttpClient) {}
 
