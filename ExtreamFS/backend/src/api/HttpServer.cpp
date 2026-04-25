@@ -35,24 +35,41 @@ bool HttpServer::Start() {
     });
 
     server.Get("/api/disks", [](const httplib::Request&, httplib::Response& res) {
-    res.set_header("Access-Control-Allow-Origin", "*");
-    res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.set_header("Access-Control-Allow-Headers", "Content-Type");
-    res.set_header("Content-Type", "application/json");
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.set_header("Content-Type", "application/json");
 
-    std::string basePath = "/home/ubuntu/Calificacion_MIA/Discos";
-    std::string json = "{\"disks\":[";
-
-    bool first = true;
+        std::string basePath = "/home/ubuntu/Calificacion_MIA/Discos";
 
         try {
-            for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
-                if (!entry.is_regular_file()) continue;
+            std::filesystem::create_directories(basePath);
+
+            std::string json = "{\"disks\":[";
+            bool first = true;
+
+            std::error_code ec;
+
+            for (const auto& entry : std::filesystem::directory_iterator(
+                    basePath,
+                    std::filesystem::directory_options::skip_permission_denied,
+                    ec
+                )) {
+
+                if (ec) continue;
+
+                std::error_code fileEc;
+
+                if (!entry.is_regular_file(fileEc)) continue;
+                if (fileEc) continue;
+
+                if (entry.path().extension().string() != ".mia") continue;
 
                 std::string path = entry.path().string();
                 std::string name = entry.path().filename().string();
 
-                if (entry.path().extension() != ".mia") continue;
+                auto size = std::filesystem::file_size(entry.path(), fileEc);
+                if (fileEc) size = 0;
 
                 if (!first) json += ",";
                 first = false;
@@ -60,7 +77,7 @@ bool HttpServer::Start() {
                 json += "{";
                 json += "\"name\":\"" + name + "\",";
                 json += "\"path\":\"" + path + "\",";
-                json += "\"size\":" + std::to_string(std::filesystem::file_size(entry.path()));
+                json += "\"size\":" + std::to_string(size);
                 json += "}";
             }
 
@@ -68,12 +85,10 @@ bool HttpServer::Start() {
 
             res.status = 200;
             res.set_content(json, "application/json");
-        } catch (...) {
+        } catch (const std::exception& e) {
+            std::string error = std::string("{\"disks\":[],\"error\":\"") + e.what() + "\"}";
             res.status = 500;
-            res.set_content(
-                R"({"disks":[],"error":"No se pudieron leer los discos."})",
-                "application/json"
-            );
+            res.set_content(error, "application/json");
         }
     });
 
